@@ -1,3 +1,4 @@
+![Icon](impact_sc_logo.png)
 # IMPACT-sc: Integrated and Modular Pipeline for Analysis of Cellular Transcriptomics
 
 ## 1. Introduction
