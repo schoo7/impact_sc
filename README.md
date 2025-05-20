@@ -225,7 +225,7 @@ tryCatch({
 }, error = function(e) {
   warning(paste("Error saving Module 2.1 output:", e$message))
 })
-Module 2.2: Cell2Sentence (R & Python)The Cell2Sentence Python script itself doesn't have many explicit species parameters in the provided code, but adata.obs["organism"] is set. This could be made dynamic if passed from R. The R preparation part is species-agnostic once clustering is done.R Environment (Part 1: Preparation)#### Module 2.2: Cell2Sentence (R&Python) ####
+Module 2.2: Cell2Sentence (R & Python)The Cell2Sentence Python script itself doesnt have many explicit species parameters in the provided code, but adata.obs["organism"] is set. This could be made dynamic if passed from R. The R preparation part is species-agnostic once clustering is done.R Environment (Part 1: Preparation)#### Module 2.2: Cell2Sentence (R&Python) ####
 obj_harmony_path <- file.path(base_output_path, "module2_harmony.RDS")
 if (file.exists(obj_harmony_path)) {
   obj <- tryCatch(readRDS(obj_harmony_path), error = function(e) {message(paste("Error loading Module 2.1 output:",e$message)); NULL})
