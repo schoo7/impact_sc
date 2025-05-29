@@ -1,15 +1,15 @@
 # IMPACT-sc: Integrated Multi-Pipeline Analysis and Characterization of Single-Cell Data
 
 <p align="center">
-  <img src="impact_sc_logo.png" alt="IMPACT-sc Logo" width="200"/>
+  <img src="impact_sc_logo.png" alt="IMPACT-sc Logo" width="500"/>
 </p>
 
 IMPACT-sc is a modular pipeline designed for the comprehensive analysis of single-cell RNA sequencing (scRNA-seq) data. It integrates various R and Python scripts to perform steps from data processing and normalization to advanced downstream analyses like cell type annotation, differential expression, trajectory inference, and query data projection. The pipeline is configured through an interactive setup script and orchestrated by a main Python script, ensuring flexibility and reproducibility.
 
 <p align="center">
-  <img src="path/to/your/overview_image.png" alt="IMPACT-sc Pipeline Overview" width="700"/>
+  <img src="impact_sc/overview_image.png" alt="IMPACT-sc Pipeline Overview" width="700"/>
   <br/>
-  <em>Figure 1: Overview of the IMPACT-sc pipeline workflow. (Replace <code>path/to/your/overview_image.png</code> with the actual path to your image)</em>
+  <em>Figure 1: Overview of the IMPACT-sc pipeline workflow. </em>
 </p>
 
 ## Table of Contents
@@ -187,7 +187,7 @@ The `run_impact_sc_pipeline.py` script sets various environment variables for th
 * `IMPACT_SC_DE_GENE` (for module `04b_DE_gsea`).
 * `IMPACT_SC_COLLECTRI_CSV_PATH`, `IMPACT_SC_PROGENY_CSV_PATH` (for module `04c_decoupler`).
 * `IMPACT_SC_MSIGDB_CATEGORY`, `IMPACT_SC_UCELL_PLOT_PATHWAY_NAME` (for module `04d_ucell_scores`).
-* `IMPACT_SC_PALANTIR_START_CELL` (for module `04e_pseudotime` or similar, based on `04f_pseudotime` in orchestrator).
-* `IMPACT_SC_QUERY_RDS_PATH`, `IMPACT_SC_QUERY_SPECIES` (for module `04f_query_projection` or similar, based on `04g_query_projection` in orchestrator).
+* `IMPACT_SC_PALANTIR_START_CELL` (for module `04e_pseudotime` or similar, based on `04e_pseudotime` in orchestrator).
+* `IMPACT_SC_QUERY_RDS_PATH`, `IMPACT_SC_QUERY_SPECIES` (for module `04f_query_projection` or similar, based on `04f_query_projection` in orchestrator).
 
 ## Directory Structure (Example)
