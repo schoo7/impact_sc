@@ -1,13 +1,13 @@
 # IMPACT-sc: Integrated Multi-Pipeline Analysis and Characterization of Single-Cell Data
 
 <p align="center">
-  <img src="impact_sc_logo.png" alt="IMPACT-sc Logo" width="500"/>
+  <img src="impact_sc_logo.png" alt="IMPACT-sc Logo" width="800"/>
 </p>
 
 IMPACT-sc is a modular pipeline designed for the comprehensive analysis of single-cell RNA sequencing (scRNA-seq) data. It integrates various R and Python scripts to perform steps from data processing and normalization to advanced downstream analyses like cell type annotation, differential expression, trajectory inference, and query data projection. The pipeline is configured through an interactive setup script and orchestrated by a main Python script, ensuring flexibility and reproducibility.
 
 <p align="center">
-  <img src="impact_sc/overview_image.png" alt="IMPACT-sc Pipeline Overview" width="700"/>
+  <img src="overview_image.png" alt="IMPACT-sc Pipeline Overview" width="800"/>
   <br/>
   <em>Figure 1: Overview of the IMPACT-sc pipeline workflow. </em>
 </p>
