@@ -17,6 +17,25 @@ ARCH=$(uname -m)
 BIOC_VERSIONS="4.4:3.19 4.3:3.18 4.2:3.16 4.1:3.14 4.0:3.12"
 
 # -------------------------
+# Path Detection
+# -------------------------
+# Detect if we're in the impact_sc directory or its parent
+if [[ -f "environment.yml" && -f "install_dependencies.sh" ]]; then
+    # We're in the impact_sc directory
+    SCRIPT_DIR="."
+    ENV_FILE="environment.yml"
+elif [[ -f "impact_sc/environment.yml" && -f "impact_sc/install_dependencies.sh" ]]; then
+    # We're in the parent directory
+    SCRIPT_DIR="impact_sc"
+    ENV_FILE="impact_sc/environment.yml"
+else
+    echo "Error: Cannot find IMPACT-sc files. Please run this script from either:"
+    echo "  1. Inside the IMPACT-sc directory (where environment.yml is located)"
+    echo "  2. From the parent directory containing the impact_sc folder"
+    exit 1
+fi
+
+# -------------------------
 # Functions
 # -------------------------
 
@@ -45,6 +64,55 @@ detect_bioc_version() {
     fail "Unsupported R version: $R_VERSION. Supported versions: $(echo "$BIOC_VERSIONS" | tr ' ' ',')"
 }
 
+setup_gfortran_mac() {
+    log "Setting up gfortran for macOS..."
+    
+    # Initialize environment variables if not set
+    export LIBRARY_PATH="${LIBRARY_PATH:-}"
+    export LDFLAGS="${LDFLAGS:-}"
+    
+    # Check if gcc is installed via Homebrew
+    if ! brew list --versions gcc >/dev/null 2>&1; then
+        log "Installing gcc via Homebrew..."
+        if ! command -v brew &> /dev/null; then
+            fail "Homebrew not found. Please install from https://brew.sh"
+        fi
+        brew install gcc
+    fi
+    
+    # Get gcc version and set up paths
+    GCC_VERSION=$(brew list --versions gcc | head -1 | awk '{print $2}' 2>/dev/null)
+    if [ -n "$GCC_VERSION" ]; then
+        export PATH="/opt/homebrew/Cellar/gcc/$GCC_VERSION/bin:$PATH"
+        export LIBRARY_PATH="/opt/homebrew/Cellar/gcc/$GCC_VERSION/lib/gcc/current:$LIBRARY_PATH"
+        export LDFLAGS="-L/opt/homebrew/Cellar/gcc/$GCC_VERSION/lib/gcc/current $LDFLAGS"
+        
+        # Create R Makevars file for proper linking
+        mkdir -p ~/.R
+        echo "FLIBS=-L/opt/homebrew/Cellar/gcc/$GCC_VERSION/lib/gcc/current -lgfortran -lquadmath" > ~/.R/Makevars
+        log "Created ~/.R/Makevars with gfortran library paths"
+        log "Added gfortran to PATH (version $GCC_VERSION)"
+    else
+        log "WARNING: Could not detect gcc version"
+    fi
+}
+
+setup_gfortran_windows() {
+    log "Setting up gfortran for Windows..."
+    
+    # Check for Rtools
+    if ! command -v gfortran &> /dev/null; then
+        log "Ensuring Rtools is in PATH for gfortran..."
+        if [[ -d "/c/Rtools" ]]; then
+            export PATH="/c/Rtools/mingw_64/bin:$PATH"
+        elif [[ -d "/c/rtools" ]]; then
+            export PATH="/c/rtools/mingw_64/bin:$PATH"
+        else
+            fail "Install Rtools from https://cran.r-project.org/bin/windows/Rtools/"
+        fi
+    fi
+}
+
 install_r_packages() {
     local bioc_version=$(detect_bioc_version)
     log "Installing R packages for Bioconductor $bioc_version (R $R_VERSION)"
@@ -55,16 +123,55 @@ install_r_packages() {
     BiocManager::install(version = '$bioc_version', ask = FALSE)
     "
     
+    # Set up gfortran based on OS
+    case "$OS_NAME" in
+        Darwin)
+            setup_gfortran_mac
+            ;;
+        MINGW*|CYGWIN*|MSYS*)
+            setup_gfortran_windows
+            ;;
+    esac
+    
     # Core packages
     Rscript -e "
     packages <- c('Seurat', 'SingleR', 'ggplot2', 'BiocParallel', 'celldex')
     BiocManager::install(packages, ask = FALSE, update = TRUE)
     "
     
-    # Install CARD from GitHub
+    # Install CARD from GitHub with robust error handling
+    log "Installing CARD from GitHub..."
     Rscript -e "
-    if (!requireNamespace('devtools', quietly = TRUE)) install.packages('devtools')
-    devtools::install_github('YingMa0107/CARD')
+    # Set build tools options for cross-platform compatibility
+    options(buildtools.check = function(action) TRUE)
+    
+    # Install devtools if necessary
+    if (!requireNamespace('devtools', quietly = TRUE)) {
+        install.packages('devtools')
+    }
+    
+    # Install CARD with retry logic
+    success <- FALSE
+    attempts <- 0
+    max_attempts <- 3
+    
+    while (!success && attempts < max_attempts) {
+        attempts <- attempts + 1
+        cat(sprintf('Attempt %d/%d to install CARD...\n', attempts, max_attempts))
+        
+        tryCatch({
+            devtools::install_github('YMa-lab/CARD', force = FALSE)
+            library(CARD)
+            cat('✅ CARD installed successfully!\n')
+            success <- TRUE
+        }, error = function(e) {
+            cat(sprintf('Attempt %d failed: %s\n', attempts, e\$message))
+            if (attempts >= max_attempts) {
+                stop('Failed to install CARD after multiple attempts. Please check your system setup.')
+            }
+            Sys.sleep(2)  # Wait before retrying
+        })
+    }
     "
 }
 
@@ -84,12 +191,12 @@ install_python_deps() {
     # Remove existing environment if present
     if $CONDA_CMD env list | grep -q "^impact_sc"; then
         log "Removing existing impact_sc environment"
-        $CONDA_CMD env remove -n impact_sc
+        $CONDA_CMD env remove -n impact_sc -y
     fi
     
     # Create fresh environment
-    log "Creating new impact_sc environment"
-    $CONDA_CMD env create -f environment.yml
+    log "Creating new impact_sc environment from $ENV_FILE"
+    $CONDA_CMD env create -f "$ENV_FILE"
     
     # Verify installation
     log "Verifying Python packages"
@@ -107,6 +214,8 @@ print('✅ All Python packages installed successfully!')
 log "Starting IMPACT-sc dependency installation"
 log "Detected system: $OS_NAME $ARCH"
 log "Detected R version: $R_VERSION"
+log "Working directory: $(pwd)"
+log "Script directory: $SCRIPT_DIR"
 
 case "$OS_NAME" in
     Darwin)
@@ -198,6 +307,8 @@ case "$OS_NAME" in
             log "Rtools not found in PATH. Checking common locations..."
             if [[ -d "/c/Rtools" ]]; then
                 export PATH="/c/Rtools/bin:/c/Rtools/mingw_64/bin:$PATH"
+            elif [[ -d "/c/rtools" ]]; then
+                export PATH="/c/rtools/bin:/c/rtools/mingw_64/bin:$PATH"
             else
                 log "Rtools not found. Please ensure Rtools is installed and added to PATH."
                 log "Download Rtools from: https://cran.r-project.org/bin/windows/Rtools/"
@@ -219,4 +330,9 @@ install_r_packages
 install_python_deps
 
 log "Installation completed successfully!"
-log "Please run 'conda activate impact_sc' before using IMPACT-sc" 
+log "Please run 'conda activate impact_sc' before using IMPACT-sc"
+log ""
+log "To test the installation, you can run:"
+log "  conda activate impact_sc"
+log "  python -c 'import scanpy, torch; print(\"Python packages OK\")'  "
+log "  R -e 'library(CARD); library(Seurat); cat(\"R packages OK\\n\")'" 
