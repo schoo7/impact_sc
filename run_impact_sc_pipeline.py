@@ -213,10 +213,33 @@ def run_script(script_path: str, script_type: str, params: dict, module_name: st
             log_file.write(f"Working directory: {cwd_to_use}\n\n")
             log_file.flush() 
 
-            process = subprocess.Popen(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE, env=env, cwd=cwd_to_use, text=True, encoding='utf-8', errors='replace')
-            stdout_data, stderr_data = process.communicate()
+            # Special handling for C2S script to show real-time progress
+            if module_name == "02b_c2s":
+                print(f"🚀 Running {module_name} with live progress monitoring...")
+                # For C2S, show real-time output while also logging
+                process = subprocess.Popen(cmd, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, 
+                                         env=env, cwd=cwd_to_use, text=True, encoding='utf-8', 
+                                         errors='replace', bufsize=1, universal_newlines=True)
+                
+                output_lines = []
+                for line in iter(process.stdout.readline, ''):
+                    line = line.rstrip()
+                    if line:
+                        print(line)  # Show real-time progress
+                        output_lines.append(line)
+                        log_file.write(line + '\n')
+                        log_file.flush()
+                
+                process.wait()
+                stdout_data = '\n'.join(output_lines)
+                stderr_data = ""
+            else:
+                # Normal execution for other scripts
+                process = subprocess.Popen(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE, 
+                                         env=env, cwd=cwd_to_use, text=True, encoding='utf-8', errors='replace')
+                stdout_data, stderr_data = process.communicate()
 
-            if stdout_data:
+            if stdout_data and module_name != "02b_c2s":  # Already logged for C2S above
                 log_file.write("\n--- stdout ---\n")
                 log_file.write(stdout_data)
             if stderr_data:

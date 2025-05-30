@@ -264,48 +264,66 @@ def main():
 
 
 def setup_demo_mode(downloaded_data: Dict[str, str]):
-    """Setup demo mode with pre-configured parameters."""
+    """Setup demo mode using downloaded data and pre-configured parameters."""
     print("\n🎯 Setting up DEMO MODE...")
     print("Using pre-configured parameters for PBMC3k dataset.")
     
+    # Ask if user wants to include C2S (which can be slow)
+    include_c2s = ask_question(
+        "Include Cell2Sentence (C2S) analysis? This provides AI-powered cell type prediction but takes longer",
+        "no",
+        choices=["yes", "no"]
+    ).lower() == "yes"
+
     params: Dict[str, Any] = {}
+    pipeline_base_dir = os.path.dirname(os.path.abspath(__file__))
     
     # Basic configuration
-    pipeline_base_dir = os.path.dirname(os.path.abspath(__file__))
-    params["input_r_scripts_dir"] = os.path.join(pipeline_base_dir, "scripts_AI")
-    params["input_python_scripts_dir"] = os.path.join(pipeline_base_dir, "scripts_AI")
-    
-    # Auto-detect Rscript
+    params["input_r_scripts_dir"] = os.path.abspath(os.path.join(pipeline_base_dir, "scripts_AI"))
+    params["input_python_scripts_dir"] = os.path.abspath(os.path.join(pipeline_base_dir, "scripts_AI"))
     params["rscript_executable_path"] = auto_detect_rscript()
+    params["species"] = "human"
+    params["output_directory"] = os.path.abspath("demo_output")
     
-    # Use demo data
+    # Demo data configuration
     if downloaded_data["demo_data"]:
         params["input_data_paths"] = [downloaded_data["demo_data"]]
         print(f"📂 Using demo data: {downloaded_data['demo_data']}")
     else:
-        print("❌ Demo data not found. Please run './download_data.sh' first.")
+        print("❌ Demo data not found!")
         return False
     
-    params["species"] = "human"
-    params["output_directory"] = os.path.abspath("demo_output")
-    
-    # Pre-select common modules for demo
-    params["selected_modules"] = [
-        "01_data_processing",
-        "02a_harmony_c2s_prep", 
-        "02b_c2s",
-        "03_cell_type_annotation",
-        "04a_basic_visualization"
-    ]
-    
-    # Cell2Sentence configuration
-    params["h5ad_path_for_c2s"] = os.path.join(params["output_directory"], "02_module2_for_c2s.h5ad")
-    if downloaded_data["c2s_model"]:
-        params["c2s_model_path_or_name"] = downloaded_data["c2s_model"]
-        print(f"🤖 Using cached Cell2Sentence model")
+    # Module selection based on C2S choice
+    if include_c2s:
+        print("🤖 Including Cell2Sentence analysis (slower but more comprehensive)")
+        params["selected_modules"] = [
+            "01_data_processing",
+            "02a_harmony_c2s_prep", 
+            "02b_c2s",
+            "02c_load_c2s_result",
+            "03_cell_type_annotation",
+            "04a_basic_visualization"
+        ]
+        
+        # Cell2Sentence configuration
+        params["h5ad_path_for_c2s"] = os.path.join(params["output_directory"], "02_module2_for_c2s.h5ad")
+        if downloaded_data["c2s_model"]:
+            params["c2s_model_path_or_name"] = downloaded_data["c2s_model"]
+            print(f"🤖 Using cached Cell2Sentence model")
+        else:
+            params["c2s_model_path_or_name"] = "vandijklab/C2S-Pythia-410m-cell-type-prediction"
+            print("⚠️ No cached model found. Will download on first use.")
     else:
-        params["c2s_model_path_or_name"] = "vandijklab/C2S-Pythia-410m-cell-type-prediction"
-        print("⚠️ No cached model found. Will download on first use.")
+        print("⚡ Skipping Cell2Sentence for faster demo (using traditional annotation only)")
+        params["selected_modules"] = [
+            "01_data_processing",
+            "03_cell_type_annotation",
+            "04a_basic_visualization"
+        ]
+        
+        # No C2S configuration needed
+        params["h5ad_path_for_c2s"] = None
+        params["c2s_model_path_or_name"] = None
     
     # Reference data
     if downloaded_data["reference_data"]:
