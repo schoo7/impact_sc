@@ -60,6 +60,12 @@ install_r_packages() {
     packages <- c('Seurat', 'SingleR', 'ggplot2', 'BiocParallel', 'celldex')
     BiocManager::install(packages, ask = FALSE, update = TRUE)
     "
+    
+    # Install CARD from GitHub
+    Rscript -e "
+    if (!requireNamespace('devtools', quietly = TRUE)) install.packages('devtools')
+    devtools::install_github('YingMa0107/CARD')
+    "
 }
 
 install_python_deps() {
