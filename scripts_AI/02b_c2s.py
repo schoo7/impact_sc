@@ -10,11 +10,29 @@ import numpy as np
 import random
 from collections import Counter
 import os
+import torch
+import multiprocessing
+
+# --- Performance Optimization Setup ---
+# Set number of CPU cores to use
+N_CORES = min(multiprocessing.cpu_count(), 8)  # Use up to 8 cores
+os.environ["OMP_NUM_THREADS"] = str(N_CORES)
+os.environ["MKL_NUM_THREADS"] = str(N_CORES)
+torch.set_num_threads(N_CORES)
+
+# Check for GPU availability
+DEVICE = "cuda" if torch.cuda.is_available() else "mps" if torch.backends.mps.is_available() else "cpu"
+print(f"🚀 Performance Settings:")
+print(f"   • Using {N_CORES} CPU cores")
+print(f"   • Device: {DEVICE}")
+print(f"   • PyTorch threads: {torch.get_num_threads()}")
 
 # --- Parameters & Setup ---
 SEED = 1234
+BATCH_SIZE = 32  # Process cells in batches for better memory management
 random.seed(SEED)
 np.random.seed(SEED)
+torch.manual_seed(SEED)
 
 # Get file paths and species from environment variables set by the R script
 h5ad_file_path = os.getenv("H5AD_FILE_PATH")
@@ -71,7 +89,8 @@ try:
         adata, 
         random_state=SEED, 
         sentence_delimiter=' ', 
-        label_col_names=obs_cols
+        label_col_names=obs_cols,
+        num_workers=min(N_CORES, 4)  # Parallelize data conversion
     )
     print("Arrow dataset created.")
 except Exception as e:
@@ -88,7 +107,8 @@ try:
         vocabulary=vocab, 
         save_dir=csdata_save_dir, 
         save_name="cell_embedding", 
-        dataset_backend="arrow"
+        dataset_backend="arrow",
+        num_workers=min(N_CORES, 4)  # Parallelize CSData creation
     )
     print("CSData object created.")
 except Exception as e:
@@ -129,20 +149,51 @@ except Exception as e:
 
 print("Embedding cells...")
 try:
-    embedded_cells = cs.tasks.embed_cells(csdata=csdata, csmodel=csmodel, n_genes=5)
+    # Optimized embedding with batch processing and device specification
+    embedded_cells = cs.tasks.embed_cells(
+        csdata=csdata, 
+        csmodel=csmodel, 
+        n_genes=5,
+        batch_size=BATCH_SIZE,  # Process in batches
+        device=DEVICE,          # Use optimal device (GPU/MPS/CPU)
+        num_workers=min(N_CORES, 4)  # Parallel data loading
+    )
     adata.obsm["c2s_cell_embeddings"] = embedded_cells
     print("Cell embeddings generated and stored in AnnData.")
 except Exception as e:
     print(f"Error embedding cells: {e}")
-    exit(1)
+    # Fallback to basic embedding if optimized version fails
+    try:
+        print("Attempting fallback embedding without optimization...")
+        embedded_cells = cs.tasks.embed_cells(csdata=csdata, csmodel=csmodel, n_genes=5)
+        adata.obsm["c2s_cell_embeddings"] = embedded_cells
+        print("Fallback embedding successful.")
+    except Exception as fallback_e:
+        print(f"Fallback embedding also failed: {fallback_e}")
+        exit(1)
 
 print("Predicting cell types...")
 try:
-    predicted_df = cs.tasks.predict_cell_types_of_data(csdata=csdata, csmodel=csmodel, n_genes=5)
+    # Optimized prediction with batch processing
+    predicted_df = cs.tasks.predict_cell_types_of_data(
+        csdata=csdata, 
+        csmodel=csmodel, 
+        n_genes=5,
+        batch_size=BATCH_SIZE,  # Process in batches
+        device=DEVICE,          # Use optimal device
+        num_workers=min(N_CORES, 4)  # Parallel processing
+    )
     print("Cell type prediction complete.")
 except Exception as e:
     print(f"Error predicting cell types: {e}")
-    predicted_df = pd.DataFrame() 
+    # Fallback to basic prediction
+    try:
+        print("Attempting fallback prediction without optimization...")
+        predicted_df = cs.tasks.predict_cell_types_of_data(csdata=csdata, csmodel=csmodel, n_genes=5)
+        print("Fallback prediction successful.")
+    except Exception as fallback_e:
+        print(f"Fallback prediction also failed: {fallback_e}")
+        predicted_df = pd.DataFrame()
 
 try:
     embedded_df = pd.DataFrame(embedded_cells, index=adata.obs_names)
