@@ -24,7 +24,8 @@
    ./install_dependencies.sh
    ```
    This will:
-   - Detect your OS and architecture
+   - Detect your OS and architecture (Windows, macOS, Linux)
+   - Install required system dependencies automatically
    - Install required R packages with proper Bioconductor version matching
    - Set up a Python conda environment with all dependencies
 
@@ -136,6 +137,62 @@ brew install llvm libomp
 - **Miniconda**: https://docs.conda.io/en/latest/miniconda.html#macos-installers
 - **Apple Silicon**: Choose `Miniconda3 macOS Apple M1 64-bit pkg`
 - **Intel**: Choose `Miniconda3 macOS Intel x86 64-bit pkg`
+
+**Verify Installation:**
+```bash
+Rscript --version
+gcc --version
+conda --version
+```
+</details>
+
+<details>
+<summary><strong>🐧 Linux Prerequisites</strong></summary>
+
+#### **1.1 Install R**
+```bash
+# Ubuntu/Debian
+sudo apt update
+sudo apt install -y r-base r-base-dev
+
+# CentOS/RHEL/Fedora
+sudo yum install -y R R-devel  # or dnf install
+
+# Arch Linux
+sudo pacman -S r
+
+# Or install from CRAN for latest version:
+# https://cran.r-project.org/bin/linux/
+```
+
+#### **1.2 Install System Dependencies**
+The installation script will handle this automatically, but you can install manually:
+
+```bash
+# Ubuntu/Debian
+sudo apt install -y build-essential libcurl4-openssl-dev libssl-dev \
+    libxml2-dev libfontconfig1-dev libharfbuzz-dev libfribidi-dev \
+    libfreetype6-dev libpng-dev libtiff5-dev libjpeg-dev cmake pkg-config gfortran
+
+# CentOS/RHEL/Fedora
+sudo yum groupinstall -y "Development Tools"
+sudo yum install -y libcurl-devel openssl-devel libxml2-devel \
+    fontconfig-devel harfbuzz-devel fribidi-devel freetype-devel \
+    libpng-devel libtiff-devel libjpeg-turbo-devel cmake pkgconfig gcc-gfortran
+
+# Arch Linux
+sudo pacman -S base-devel curl openssl libxml2 fontconfig \
+    harfbuzz fribidi freetype2 libpng libtiff libjpeg-turbo cmake pkgconfig gcc-fortran
+```
+
+#### **1.3 Install Conda**
+```bash
+# Download Miniconda
+wget https://repo.anaconda.com/miniconda/Miniconda3-latest-Linux-x86_64.sh
+bash Miniconda3-latest-Linux-x86_64.sh
+
+# Follow installation prompts and restart terminal
+```
 
 **Verify Installation:**
 ```bash
@@ -376,6 +433,51 @@ xcode-select -p  # Should show Xcode path
 - ✅ Conda environment properly activated
 </details>
 
+<details>
+<summary><strong>🐧 Linux-Specific Issues</strong></summary>
+
+| Problem | Solution |
+|---------|----------|
+| **R packages won't compile** | Install build tools: `sudo apt install build-essential` (Ubuntu) |
+| **Missing system libraries** | Install development headers: `sudo apt install lib*-dev` |
+| **Permission errors** | Use `sudo` for system package installation |
+| **Conda not found** | Add conda to PATH in `~/.bashrc` or `~/.zshrc` |
+| **Old R version** | Install from CRAN repository for latest version |
+| **Package manager fails** | Try different package manager (apt/yum/dnf/pacman) |
+
+**Environment Variables:**
+```bash
+# Add to ~/.bashrc or ~/.zshrc if needed
+export PKG_CONFIG_PATH="/usr/lib/pkgconfig:/usr/lib/x86_64-linux-gnu/pkgconfig"
+export LD_LIBRARY_PATH="/usr/lib:/usr/local/lib"
+```
+
+**Debugging:**
+```bash
+# Check distribution
+cat /etc/os-release
+
+# Check R installation
+which Rscript
+R --slave -e ".libPaths()"
+
+# Check build tools
+gcc --version
+make --version
+pkg-config --version
+
+# Check system libraries
+ldconfig -p | grep -E "(curl|ssl|xml)"
+```
+
+**Key Requirements:**
+- ✅ Build tools installed (gcc, make, cmake)
+- ✅ Development libraries installed
+- ✅ R accessible via command line
+- ✅ Conda environment properly activated
+- ✅ Sudo privileges for system package installation
+</details>
+
 ### **Common Log Files:**
 - `r_package_install_windows.log` / `r_package_install_mac.log` - R package installation
 - `python_env_setup.log` - Python environment setup  
@@ -411,7 +513,7 @@ impact_sc/
 
 ### **Supported Features:**
 - ✅ **Species**: Human and Mouse
-- ✅ **Platforms**: Windows and macOS (including Apple Silicon)
+- ✅ **Platforms**: Windows, macOS (Intel/Apple Silicon), and Linux (Ubuntu/Debian/CentOS/RHEL/Fedora/Arch)
 - ✅ **Environments**: Conda virtual environments
 - ✅ **Integration**: R + Python seamless workflow
 - ✅ **Reproducibility**: JSON parameter configuration
@@ -454,3 +556,62 @@ Contributions welcome! Please ensure compatibility with both Windows and macOS p
 ---
 
 **⚡ Total setup time: ~1-2 hours | Get started by expanding your platform section above!** 
+
+### Unified Installation (All Platforms)
+
+1. **Clone the repository**:
+   ```bash
+   git clone https://github.com/schoo7/impact_sc.git
+   cd impact_sc
+   ```
+
+2. **Run the unified installer**:
+   ```bash
+   chmod +x install_dependencies.sh
+   ./install_dependencies.sh
+   ```
+   This will:
+   - Detect your OS and architecture (Windows, macOS, Linux)
+   - Install required system dependencies automatically
+   - Install required R packages with proper Bioconductor version matching
+   - Set up a Python conda environment with all dependencies
+
+3. **Verify installation**:
+   ```bash
+   # Test R installation
+   Rscript -e "library(Seurat); library(SingleR); cat('✅ R packages installed successfully!\n')"
+   
+   # Test Python environment
+   conda activate impact_sc
+   python -c "import scanpy, torch; print(f'✅ Scanpy {scanpy.__version__}, PyTorch {torch.__version__}')"
+   ```
+
+---
+
+## 🔧 Configuration
+
+After installation, configure the pipeline:
+```bash
+conda activate impact_sc
+python interactive_setup.py
+```
+
+Then run the pipeline:
+```bash
+python run_impact_sc_pipeline.py /path/to/impact_sc_params.json
+```
+
+---
+
+## Key Improvements
+
+- **Cross-platform support**: Works on Windows, macOS (Intel/Apple Silicon), and Linux (Ubuntu/Debian/CentOS/RHEL/Fedora/Arch)
+- **Automatic version management**:
+  - Detects R version and installs compatible Bioconductor
+  - Handles Python package compatibility
+- **Automated system dependencies**: Installs build tools and libraries automatically
+- **Isolated environments**:
+  - R packages installed system-wide
+  - Python packages in dedicated conda environment
+
+For troubleshooting, see the updated [Troubleshooting section](#-troubleshooting) below. 

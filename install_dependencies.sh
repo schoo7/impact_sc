@@ -105,6 +105,7 @@ log "Detected R version: $R_VERSION"
 case "$OS_NAME" in
     Darwin)
         # macOS specific setup
+        log "macOS detected"
         if [[ "$ARCH" == "arm64" ]]; then
             log "Apple Silicon detected - ensuring Rosetta compatibility"
             export LDFLAGS="-L/opt/homebrew/lib"
@@ -113,9 +114,58 @@ case "$OS_NAME" in
         ;;
     Linux)
         # Linux specific setup
+        log "Linux detected"
+        
+        # Detect Linux distribution
+        if [[ -f /etc/os-release ]]; then
+            . /etc/os-release
+            DISTRO=$ID
+            log "Distribution: $DISTRO"
+        else
+            DISTRO="unknown"
+            log "WARNING: Could not detect Linux distribution"
+        fi
+        
+        # Install system dependencies based on distribution
+        case "$DISTRO" in
+            ubuntu|debian)
+                log "Installing system dependencies for Debian/Ubuntu"
+                if command -v apt-get &> /dev/null; then
+                    sudo apt-get update
+                    sudo apt-get install -y build-essential libcurl4-openssl-dev libssl-dev libxml2-dev \
+                        libfontconfig1-dev libharfbuzz-dev libfribidi-dev libfreetype6-dev libpng-dev \
+                        libtiff5-dev libjpeg-dev cmake pkg-config gfortran
+                fi
+                ;;
+            centos|rhel|fedora)
+                log "Installing system dependencies for RHEL/CentOS/Fedora"
+                if command -v yum &> /dev/null; then
+                    sudo yum groupinstall -y "Development Tools"
+                    sudo yum install -y libcurl-devel openssl-devel libxml2-devel \
+                        fontconfig-devel harfbuzz-devel fribidi-devel freetype-devel \
+                        libpng-devel libtiff-devel libjpeg-turbo-devel cmake pkgconfig gcc-gfortran
+                elif command -v dnf &> /dev/null; then
+                    sudo dnf groupinstall -y "Development Tools"
+                    sudo dnf install -y libcurl-devel openssl-devel libxml2-devel \
+                        fontconfig-devel harfbuzz-devel fribidi-devel freetype-devel \
+                        libpng-devel libtiff-devel libjpeg-turbo-devel cmake pkgconfig gcc-gfortran
+                fi
+                ;;
+            arch)
+                log "Installing system dependencies for Arch Linux"
+                if command -v pacman &> /dev/null; then
+                    sudo pacman -S --needed base-devel curl openssl libxml2 fontconfig \
+                        harfbuzz fribidi freetype2 libpng libtiff libjpeg-turbo cmake pkgconfig gcc-fortran
+                fi
+                ;;
+            *)
+                log "WARNING: Unknown Linux distribution. You may need to install build tools manually."
+                ;;
+        esac
         ;;
     MINGW*|CYGWIN*|MSYS*)
         # Windows specific setup
+        log "Windows (Git Bash/MSYS) detected"
         ;;
     *)
         fail "Unsupported operating system: $OS_NAME"
