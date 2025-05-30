@@ -1,6 +1,11 @@
 # Data directories
 data/
 
+# Output directories
+demo_output/
+impact_output/
+*_output/
+
 # Downloaded files
 *.tar.gz
 *.zip
