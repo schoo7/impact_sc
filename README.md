@@ -26,17 +26,30 @@
    This will:
    - Detect your OS and architecture (Windows, macOS, Linux)
    - Install required system dependencies automatically
-   - Install required R packages with proper Bioconductor version matching
+   - Install required R packages with proper Bioconductor version matching (including celldex)
    - Set up a Python conda environment with all dependencies
 
-3. **Verify installation**:
+3. **Download demo data and models**:
+   ```bash
+   chmod +x download_data.sh
+   ./download_data.sh
+   ```
+   This will download (~3-5GB):
+   - **Demo data**: PBMC3k dataset from 10x Genomics
+   - **AI Models**: Cell2Sentence pre-trained model
+   - **Reference data**: HumanPrimaryCellAtlasData for cell type annotation
+
+4. **Verify installation**:
    ```bash
    # Test R installation
-   Rscript -e "library(Seurat); library(SingleR); cat('✅ R packages installed successfully!\n')"
+   Rscript -e "library(Seurat); library(SingleR); library(celldex); cat('✅ R packages installed successfully!\n')"
    
    # Test Python environment
    conda activate impact_sc
    python -c "import scanpy, torch; print(f'✅ Scanpy {scanpy.__version__}, PyTorch {torch.__version__}')"
+   
+   # Check data availability
+   ls -la data/
    ```
 
 ---
@@ -494,8 +507,15 @@ impact_sc/
 ├── install_r_packages_windows.sh  # Windows R installer
 ├── install_r_packages_mac.sh      # macOS R installer  
 ├── setup_python_environment.sh    # Python environment setup
+├── install_dependencies.sh        # Unified cross-platform installer
+├── download_data.sh               # Data download script
+├── environment.yml                # Conda environment specification
 ├── interactive_setup.py           # Configuration script
 ├── run_impact_sc_pipeline.py     # Main pipeline
+├── data/                          # Downloaded data (created by download_data.sh)
+│   ├── demo/                     # Demo datasets (PBMC3k)
+│   ├── models/                   # Pre-trained models (Cell2Sentence)
+│   └── reference/                # Reference data (HumanPrimaryCellAtlas)
 └── output/                        # Results (created during setup)
     ├── impact_sc_params.json     # Configuration file
     ├── *_log.txt                 # Module logs
@@ -573,17 +593,30 @@ Contributions welcome! Please ensure compatibility with both Windows and macOS p
    This will:
    - Detect your OS and architecture (Windows, macOS, Linux)
    - Install required system dependencies automatically
-   - Install required R packages with proper Bioconductor version matching
+   - Install required R packages with proper Bioconductor version matching (including celldex)
    - Set up a Python conda environment with all dependencies
 
-3. **Verify installation**:
+3. **Download demo data and models**:
+   ```bash
+   chmod +x download_data.sh
+   ./download_data.sh
+   ```
+   This will download (~3-5GB):
+   - **Demo data**: PBMC3k dataset from 10x Genomics
+   - **AI Models**: Cell2Sentence pre-trained model
+   - **Reference data**: HumanPrimaryCellAtlasData for cell type annotation
+
+4. **Verify installation**:
    ```bash
    # Test R installation
-   Rscript -e "library(Seurat); library(SingleR); cat('✅ R packages installed successfully!\n')"
+   Rscript -e "library(Seurat); library(SingleR); library(celldex); cat('✅ R packages installed successfully!\n')"
    
    # Test Python environment
    conda activate impact_sc
    python -c "import scanpy, torch; print(f'✅ Scanpy {scanpy.__version__}, PyTorch {torch.__version__}')"
+   
+   # Check data availability
+   ls -la data/
    ```
 
 ---

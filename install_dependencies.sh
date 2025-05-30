@@ -57,7 +57,7 @@ install_r_packages() {
     
     # Core packages
     Rscript -e "
-    packages <- c('Seurat', 'SingleR', 'ggplot2', 'BiocParallel')
+    packages <- c('Seurat', 'SingleR', 'ggplot2', 'BiocParallel', 'celldex')
     BiocManager::install(packages, ask = FALSE, update = TRUE)
     "
 }
