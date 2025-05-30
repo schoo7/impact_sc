@@ -181,8 +181,25 @@ def check_downloaded_data() -> Dict[str, str]:
     # Check for demo data
     demo_path = os.path.join(current_dir, "data", "demo", "filtered_gene_bc_matrices")
     if os.path.exists(demo_path):
-        data_paths["demo_data"] = demo_path
-        print(f"✅ Found demo data: {demo_path}")
+        # Check if this is a 10x format directory structure
+        hg19_path = os.path.join(demo_path, "hg19")
+        if os.path.exists(hg19_path):
+            # Check for required 10x files
+            matrix_file = os.path.join(hg19_path, "matrix.mtx")
+            genes_file = os.path.join(hg19_path, "genes.tsv")
+            barcodes_file = os.path.join(hg19_path, "barcodes.tsv")
+            
+            if all(os.path.exists(f) for f in [matrix_file, genes_file, barcodes_file]):
+                data_paths["demo_data"] = hg19_path  # Point to hg19 subdirectory
+                print(f"✅ Found demo data: {hg19_path}")
+            else:
+                print(f"⚠️ Demo directory found but missing 10x files: {demo_path}")
+        else:
+            # Fallback to original path if no hg19 subdirectory
+            data_paths["demo_data"] = demo_path
+            print(f"✅ Found demo data: {demo_path}")
+    else:
+        print(f"⚠️ Demo data not found at: {demo_path}")
     
     # Check for Cell2Sentence model cache
     models_dir = os.path.join(current_dir, "data", "models")

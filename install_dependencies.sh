@@ -139,6 +139,32 @@ install_r_packages() {
     BiocManager::install(packages, ask = FALSE, update = TRUE)
     "
     
+    # Install additional required CRAN packages
+    log "Installing additional CRAN packages..."
+    Rscript -e "
+    cran_packages <- c('homologene', 'devtools')
+    install.packages(cran_packages, repos = 'https://cran.r-project.org/')
+    "
+    
+    # Install packages from GitHub that are not available on CRAN
+    log "Installing GitHub packages..."
+    Rscript -e "
+    # Install devtools if not already installed
+    if (!requireNamespace('devtools', quietly = TRUE)) {
+        install.packages('devtools')
+    }
+    
+    # Install scRNAtoolVis from GitHub
+    tryCatch({
+        devtools::install_github('junjunlab/scRNAtoolVis', force = FALSE)
+        library(scRNAtoolVis)
+        cat('✅ scRNAtoolVis installed successfully!\\n')
+    }, error = function(e) {
+        cat('Warning: Failed to install scRNAtoolVis:', e\$message, '\\n')
+        cat('This may cause issues with visualization modules.\\n')
+    })
+    "
+    
     # Install CARD from GitHub with robust error handling
     log "Installing CARD from GitHub..."
     Rscript -e "
@@ -157,20 +183,40 @@ install_r_packages() {
     
     while (!success && attempts < max_attempts) {
         attempts <- attempts + 1
-        cat(sprintf('Attempt %d/%d to install CARD...\n', attempts, max_attempts))
+        cat(sprintf('Attempt %d/%d to install CARD...\\n', attempts, max_attempts))
         
         tryCatch({
             devtools::install_github('YMa-lab/CARD', force = FALSE)
             library(CARD)
-            cat('✅ CARD installed successfully!\n')
+            cat('✅ CARD installed successfully!\\n')
             success <- TRUE
         }, error = function(e) {
-            cat(sprintf('Attempt %d failed: %s\n', attempts, e\$message))
+            cat(sprintf('Attempt %d failed: %s\\n', attempts, e\$message))
             if (attempts >= max_attempts) {
                 stop('Failed to install CARD after multiple attempts. Please check your system setup.')
             }
             Sys.sleep(2)  # Wait before retrying
         })
+    }
+    "
+    
+    # Verify key packages are installed
+    log "Verifying R package installations..."
+    Rscript -e "
+    required_packages <- c('Seurat', 'SingleR', 'CARD', 'celldex', 'homologene')
+    missing_packages <- c()
+    
+    for (pkg in required_packages) {
+        if (!requireNamespace(pkg, quietly = TRUE)) {
+            missing_packages <- c(missing_packages, pkg)
+        }
+    }
+    
+    if (length(missing_packages) > 0) {
+        cat('❌ Missing packages:', paste(missing_packages, collapse = ', '), '\\n')
+        stop('Some required packages failed to install.')
+    } else {
+        cat('✅ All required R packages installed successfully!\\n')
     }
     "
 }

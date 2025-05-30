@@ -71,17 +71,46 @@ if (species == "human") {
 #### Module 1: Data Process ####
 message("Starting Module 1: Data Processing")
 
-# Input: Expects 'ori.RDS' in the parent directory or adjust path.
+# Input: Expects either 'ori.RDS' file or directory with 10x format files
 # Output: Saves 'module1_processed.RDS' in the 'output/' directory.
 
-# Read input RDS path from environment variable, default to ../ori.RDS if not set.
+# Read input data path from environment variable, default to ../ori.RDS if not set.
 obj_rds_path <- Sys.getenv("IMPACT_SC_INPUT_DATA_PATH", "../ori.RDS") 
+
 obj <- tryCatch({
-  readRDS(obj_rds_path)
+  # Check if the path is a directory (10x format) or a file (RDS format)
+  if (dir.exists(obj_rds_path)) {
+    # Check for 10x format files
+    matrix_file <- file.path(obj_rds_path, "matrix.mtx")
+    genes_file <- file.path(obj_rds_path, "genes.tsv")
+    barcodes_file <- file.path(obj_rds_path, "barcodes.tsv")
+    
+    if (file.exists(matrix_file) && file.exists(genes_file) && file.exists(barcodes_file)) {
+      message(paste("Loading 10x format data from:", obj_rds_path))
+      
+      # Read 10x data
+      data_10x <- Read10X(data.dir = obj_rds_path)
+      
+      # Create Seurat object
+      obj <- CreateSeuratObject(counts = data_10x, project = "IMPACT_sc_demo")
+      message(paste("Created Seurat object with", ncol(obj), "cells and", nrow(obj), "genes"))
+      
+      obj
+    } else {
+      stop("Directory does not contain required 10x files (matrix.mtx, genes.tsv, barcodes.tsv)")
+    }
+  } else if (file.exists(obj_rds_path)) {
+    # Load RDS file
+    message(paste("Loading RDS data from:", obj_rds_path))
+    readRDS(obj_rds_path)
+  } else {
+    stop(paste("Input data path does not exist:", obj_rds_path))
+  }
 }, error = function(e) {
-  stop(paste("Error loading ori.RDS from", obj_rds_path, ":", e$message))
+  stop(paste("Error loading data from", obj_rds_path, ":", e$message))
   return(NULL)
 })
+
 if (is.null(obj)) stop("Failed to load input data for IMPACT-sc.")
 
 if (length(unique(obj$orig.ident)) > 1) {
