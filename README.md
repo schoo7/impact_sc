@@ -23,16 +23,61 @@
    ```bash
    ./download_data.sh  # Downloads demo data, models, and reference datasets (~3-5GB)
    ```
-   This includes:
-   - **Demo Data**: PBMC3k single-cell dataset from 10x Genomics
-   - **AI Models**: Pre-trained Cell2Sentence model for cell type prediction
-   - **Reference Data**: HumanPrimaryCellAtlas for cell type annotation
 
-3. **Verify Installation**:
+3. **Run Demo** (Recommended for first-time users):
+   ```bash
+   ./run_demo.sh  # Automatically configures and runs demo with PBMC3k data
+   ```
+   
+   **OR Configure Manually**:
    ```bash
    conda activate impact_sc
-   python test_data_download.py  # Tests all components
+   python interactive_setup.py  # Choose demo or custom mode
+   python run_impact_sc_pipeline.py [path_to_params.json]
    ```
+
+---
+
+## 🎯 Demo Mode vs Custom Mode
+
+### **🎯 Demo Mode** (Recommended for beginners)
+- **One-click setup**: Pre-configured parameters for PBMC3k dataset
+- **Automatic data detection**: Uses downloaded demo data, models, and references
+- **Quick testing**: Runs core modules (data processing, C2S, annotation, visualization)
+- **No user input required**: All paths and parameters automatically set
+
+**Demo includes**:
+- PBMC3k dataset (3,000 cells from 10x Genomics)
+- Cell2Sentence model for cell type prediction
+- HumanPrimaryCellAtlas reference data
+- Optimized gene markers for immune cell visualization
+
+### **⚙️ Custom Mode** (For experienced users)
+- **Flexible configuration**: Use your own datasets and parameters  
+- **Smart defaults**: Downloaded data used as suggestions when available
+- **Full control**: Select specific modules and customize all parameters
+- **Data validation**: Checks file existence and provides helpful warnings
+
+---
+
+## 💡 Smart Data Integration
+
+The interactive setup now automatically:
+
+1. **Detects Downloaded Data**:
+   - ✅ Demo data at `data/demo/`
+   - ✅ Cached AI models at `data/models/`  
+   - ✅ Reference data at `data/reference/`
+
+2. **Provides Intelligent Defaults**:
+   - Uses cached Cell2Sentence model (no re-download)
+   - Suggests downloaded reference data for SingleR
+   - Auto-configures paths based on available data
+
+3. **Validates Data Availability**:
+   - Warns when required files are missing
+   - Provides fallback to online resources when possible
+   - Clear error messages for troubleshooting
 
 ---
 

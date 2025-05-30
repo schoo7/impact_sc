@@ -169,8 +169,207 @@ def ask_for_dotplot_genes() -> List[Dict[str, Any]]:
         print("No gene groups provided for DotPlot. The R script will skip DotPlot if no genes are configured via environment variables.")
     return dotplot_groups
 
+def check_downloaded_data() -> Dict[str, str]:
+    """Check for downloaded data and return paths if found."""
+    current_dir = os.path.dirname(os.path.abspath(__file__))
+    data_paths = {
+        "demo_data": None,
+        "c2s_model": None,
+        "reference_data": None
+    }
+    
+    # Check for demo data
+    demo_path = os.path.join(current_dir, "data", "demo", "filtered_gene_bc_matrices")
+    if os.path.exists(demo_path):
+        data_paths["demo_data"] = demo_path
+        print(f"✅ Found demo data: {demo_path}")
+    
+    # Check for Cell2Sentence model cache
+    models_dir = os.path.join(current_dir, "data", "models")
+    if os.path.exists(models_dir):
+        # Look for cached model files
+        import glob
+        model_files = glob.glob(os.path.join(models_dir, "**/*C2S*"), recursive=True) + \
+                     glob.glob(os.path.join(models_dir, "**/*Pythia*"), recursive=True)
+        if model_files:
+            data_paths["c2s_model"] = "vandijklab/C2S-Pythia-410m-cell-type-prediction"  # Use HF name with cache
+            print(f"✅ Found Cell2Sentence model cache: {models_dir}")
+        else:
+            print(f"⚠️ Models directory exists but no cached files found: {models_dir}")
+    
+    # Check for reference data
+    ref_path = os.path.join(current_dir, "data", "reference", "HumanPrimaryCellAtlasData.rds")
+    if os.path.exists(ref_path):
+        data_paths["reference_data"] = ref_path
+        print(f"✅ Found reference data: {ref_path}")
+    
+    return data_paths
+
+def ask_demo_mode() -> bool:
+    """Ask if user wants to use demo mode."""
+    print("\n" + "="*60)
+    print("🚀 IMPACT-sc Setup Mode Selection")
+    print("="*60)
+    
+    downloaded_data = check_downloaded_data()
+    has_demo_data = downloaded_data["demo_data"] is not None
+    
+    if has_demo_data:
+        print("✅ Demo data detected! You can run in demo mode.")
+        print("📂 Demo data includes:")
+        print("   • PBMC3k single-cell dataset (10x Genomics)")
+        print("   • Pre-configured parameters for quick testing")
+        print("")
+        
+        mode_choice = ask_question(
+            "Choose setup mode:\n  [demo] - Use demo data and auto-configure\n  [custom] - Configure your own data",
+            "demo",
+            choices=["demo", "custom"]
+        ).lower()
+        
+        return mode_choice == "demo"
+    else:
+        print("⚠️ No demo data found. Run './download_data.sh' first to enable demo mode.")
+        print("Proceeding with custom setup...")
+        return False
+
 def main():
     print("--- Welcome to IMPACT-sc Interactive Setup ---")
+    
+    # Check for downloaded data
+    downloaded_data = check_downloaded_data()
+    use_demo_mode = ask_demo_mode()
+    
+    if use_demo_mode:
+        return setup_demo_mode(downloaded_data)
+    else:
+        return setup_custom_mode(downloaded_data)
+
+
+def setup_demo_mode(downloaded_data: Dict[str, str]):
+    """Setup demo mode with pre-configured parameters."""
+    print("\n🎯 Setting up DEMO MODE...")
+    print("Using pre-configured parameters for PBMC3k dataset.")
+    
+    params: Dict[str, Any] = {}
+    
+    # Basic configuration
+    pipeline_base_dir = os.path.dirname(os.path.abspath(__file__))
+    params["input_r_scripts_dir"] = os.path.join(pipeline_base_dir, "scripts_AI")
+    params["input_python_scripts_dir"] = os.path.join(pipeline_base_dir, "scripts_AI")
+    
+    # Auto-detect Rscript
+    params["rscript_executable_path"] = auto_detect_rscript()
+    
+    # Use demo data
+    if downloaded_data["demo_data"]:
+        params["input_data_paths"] = [downloaded_data["demo_data"]]
+        print(f"📂 Using demo data: {downloaded_data['demo_data']}")
+    else:
+        print("❌ Demo data not found. Please run './download_data.sh' first.")
+        return False
+    
+    params["species"] = "human"
+    params["output_directory"] = os.path.abspath("demo_output")
+    
+    # Pre-select common modules for demo
+    params["selected_modules"] = [
+        "01_data_processing",
+        "02a_harmony_c2s_prep", 
+        "02b_c2s",
+        "03_cell_type_annotation",
+        "04a_basic_visualization"
+    ]
+    
+    # Cell2Sentence configuration
+    params["h5ad_path_for_c2s"] = os.path.join(params["output_directory"], "02_module2_for_c2s.h5ad")
+    if downloaded_data["c2s_model"]:
+        params["c2s_model_path_or_name"] = downloaded_data["c2s_model"]
+        print(f"🤖 Using cached Cell2Sentence model")
+    else:
+        params["c2s_model_path_or_name"] = "vandijklab/C2S-Pythia-410m-cell-type-prediction"
+        print("⚠️ No cached model found. Will download on first use.")
+    
+    # Reference data
+    if downloaded_data["reference_data"]:
+        params["local_singler_ref_path"] = downloaded_data["reference_data"]
+        print(f"📚 Using downloaded reference data")
+    else:
+        params["local_singler_ref_path"] = None
+        print("⚠️ No reference data found. Will use online celldex.")
+    
+    # Default visualization genes for PBMC
+    params["featureplot_genes"] = "CD3D,CD14,MS4A1,FCGR3A,LYZ,PPBP"
+    params["dotplot_gene_groups"] = [
+        {"name": "T_cell_markers", "genes": ["CD3D", "CD3E", "CD8A", "CD4"]},
+        {"name": "B_cell_markers", "genes": ["MS4A1", "CD79A", "CD79B"]},
+        {"name": "Myeloid_markers", "genes": ["CD14", "LYZ", "FCGR3A", "CST3"]}
+    ]
+    
+    # Other defaults
+    params["final_cell_type_source"] = "auto"
+    params["de_gsea_plot_gene"] = "CD3D"
+    params["collectri_csv_path"] = None
+    params["progeny_csv_path"] = None
+    params["msigdb_category"] = "H"
+    params["ucell_plot_pathway_name"] = ""
+    params["conditional_paths"] = {
+        "query_rds_path": None,
+        "query_species": None,
+        "palantir_start_cell": None
+    }
+    params["ollama_model_name"] = "gemma3:12b-it-qat"
+    params["ollama_base_url"] = "http://localhost:11434"
+    
+    # Save parameters
+    save_params(params)
+    print("\n🎉 Demo mode setup complete!")
+    print("Run: conda activate impact_sc && python run_impact_sc_pipeline.py demo_output/impact_sc_params.json")
+    return True
+
+
+def auto_detect_rscript() -> str:
+    """Auto-detect Rscript executable."""
+    import subprocess
+    import platform
+    
+    try:
+        if platform.system() == "Windows":
+            result = subprocess.run(['where', 'Rscript.exe'], capture_output=True, text=True, timeout=5)
+        else:
+            result = subprocess.run(['which', 'Rscript'], capture_output=True, text=True, timeout=5)
+        
+        if result.returncode == 0 and result.stdout.strip():
+            return result.stdout.strip().split('\n')[0]
+    except:
+        pass
+    
+    # Fallback paths
+    fallback_paths = []
+    if platform.system() == "Darwin":  # macOS
+        fallback_paths = [
+            "/opt/homebrew/bin/Rscript",
+            "/usr/local/bin/Rscript", 
+            "/Library/Frameworks/R.framework/Resources/bin/Rscript"
+        ]
+    elif platform.system() == "Windows":
+        fallback_paths = [
+            "C:\\Program Files\\R\\R-4.3.0\\bin\\x64\\Rscript.exe",
+            "C:\\Program Files\\R\\R-4.2.3\\bin\\x64\\Rscript.exe"
+        ]
+    else:  # Linux
+        fallback_paths = ["/usr/local/bin/Rscript", "/usr/bin/Rscript"]
+    
+    for path in fallback_paths:
+        if os.path.exists(path):
+            return path
+    
+    return "Rscript"  # Default fallback
+
+
+def setup_custom_mode(downloaded_data: Dict[str, str]):
+    """Setup custom mode with user inputs, using downloaded data as defaults."""
+    print("\n⚙️ Setting up CUSTOM MODE...")
     print("Please provide the following information:")
 
     params: Dict[str, Any] = {}
@@ -194,55 +393,7 @@ def main():
 
 
     print("\n--- Rscript Executable Path ---")
-    default_rscript_path_suggestion = None
-    potential_r_paths = []
-    if os.name == 'nt':
-        try:
-            result = subprocess.run(['where', 'Rscript.exe'], capture_output=True, text=True, check=False, timeout=5)
-            if result.returncode == 0 and result.stdout.strip():
-                default_rscript_path_suggestion = result.stdout.strip().splitlines()[0]
-        except (FileNotFoundError, subprocess.TimeoutExpired):
-             pass
-        if not default_rscript_path_suggestion:
-            potential_r_paths.extend([
-                "C:\\Program Files\\R\\R-4.3.0\\bin\\x64\\Rscript.exe",
-                "C:\\Program Files\\R\\R-4.2.3\\bin\\x64\\Rscript.exe",
-                "F:\\R-4.2.3\\bin\\x64\\Rscript.exe"
-            ])
-    else:
-        try:
-            result = subprocess.run(['which', 'Rscript'], capture_output=True, text=True, check=False, timeout=5)
-            if result.returncode == 0 and result.stdout.strip():
-                default_rscript_path_suggestion = result.stdout.strip()
-        except (FileNotFoundError, subprocess.TimeoutExpired):
-            pass
-        if not default_rscript_path_suggestion:
-            # Enhanced Mac R path detection
-            mac_r_paths = [
-                "/opt/homebrew/bin/Rscript",                                      # Homebrew on Apple Silicon
-                "/usr/local/bin/Rscript",                                         # Homebrew on Intel Mac
-                "/Library/Frameworks/R.framework/Resources/bin/Rscript",         # CRAN R installer
-                "/Applications/R.app/Contents/Resources/bin/Rscript",            # R.app (alternative path)
-                "/usr/bin/Rscript",                                               # System R (rare)
-                "/opt/local/bin/Rscript"                                          # MacPorts R
-            ]
-            
-            # Check if we're on Mac and add Mac-specific paths
-            try:
-                import platform
-                if platform.system() == "Darwin":
-                    potential_r_paths.extend(mac_r_paths)
-                    print("🍎 Detected macOS - checking common R installation locations...")
-                else:
-                    potential_r_paths.extend(["/usr/local/bin/Rscript", "/usr/bin/Rscript"])
-            except:
-                potential_r_paths.extend(["/usr/local/bin/Rscript", "/usr/bin/Rscript"])
-    
-    if not default_rscript_path_suggestion:
-        for r_path in potential_r_paths:
-            if os.path.exists(r_path):
-                default_rscript_path_suggestion = r_path
-                break
+    default_rscript_path_suggestion = auto_detect_rscript()
     
     rscript_exe_paths = ask_for_paths(
         "Enter the full path to your Rscript executable",
@@ -256,10 +407,16 @@ def main():
 
 
     print("\n--- Input Data ---")
+    # Use demo data as default if available
+    demo_suggestion = downloaded_data["demo_data"] if downloaded_data["demo_data"] else None
+    if demo_suggestion:
+        print(f"💡 Tip: Demo data available at: {demo_suggestion}")
+    
     params["input_data_paths"] = ask_for_paths(
         "Enter the full path to your primary input scRNA-seq data file(s) (e.g., feature-barcode matrix directory, or an .RDS file like 'ori.RDS')",
         allow_multiple=True,
-        is_optional=False
+        is_optional=False,
+        default_path_suggestion=demo_suggestion
     )
     params["species"] = ask_question("Enter the species ('human' or 'mouse')", "human", choices=["human", "mouse"]).lower()
 
@@ -296,25 +453,24 @@ def main():
             print("CRITICAL ERROR IN SETUP: Module 02b_c2s selected, but no valid H5AD input path was provided. The pipeline will likely fail.")
             sys.exit(1)
 
-        # Ask for Cell2Sentence model path or name
-        default_c2s_model_name = "james-y-u/C2S-Pythia-410m-cell-type-prediction"
+        # Use downloaded model as default
+        default_c2s_model = downloaded_data["c2s_model"] if downloaded_data["c2s_model"] else "vandijklab/C2S-Pythia-410m-cell-type-prediction"
+        if downloaded_data["c2s_model"]:
+            print(f"💡 Tip: Cached model available: {default_c2s_model}")
+        
         c2s_model_input_paths = ask_for_paths(
             f"Enter the Cell2Sentence model path (if local, e.g., F:\\path\\to\\model_folder) or Hugging Face model name",
-            is_optional=False, # Assuming model is required for this module
-            ensure_dir=False, # Set to True if you want to enforce it's a local DIR, False allows HF names
-            default_path_suggestion=default_c2s_model_name
+            is_optional=False,
+            ensure_dir=False,
+            default_path_suggestion=default_c2s_model
         )
         if c2s_model_input_paths:
-            # If it's a local path, ask_for_paths would have made it absolute if it exists.
-            # If it doesn't exist locally, it's treated as a name (e.g., from Hugging Face).
-            # We need to check if the user-provided path is an existing directory.
-            # If it is, we use the absolute path. Otherwise, we use the input as is (could be HF name).
             potential_local_path = os.path.abspath(c2s_model_input_paths[0])
             if os.path.isdir(potential_local_path):
                 params["c2s_model_path_or_name"] = potential_local_path
                 print(f"Using local Cell2Sentence model from directory: {params['c2s_model_path_or_name']}")
             else:
-                params["c2s_model_path_or_name"] = c2s_model_input_paths[0] # Use as is (could be HF name)
+                params["c2s_model_path_or_name"] = c2s_model_input_paths[0]
                 print(f"Using Cell2Sentence model (name or non-validated path): {params['c2s_model_path_or_name']}")
         else:
             print("CRITICAL ERROR IN SETUP: Module 02b_c2s selected, but no Cell2Sentence model path/name was provided.")
@@ -404,6 +560,12 @@ def main():
         prompt_text = f"Enter the full path to a local SingleR reference RDS file for {params['species']} (e.g., F:/R_PROJECT/impact/ref/{params['species']}ref.RDS)."
         is_ref_optional_for_module3 = not module_3_is_selected
 
+        # Use downloaded reference data as default
+        ref_suggestion = downloaded_data["reference_data"] if downloaded_data["reference_data"] else None
+        if ref_suggestion:
+            print(f"💡 Tip: Downloaded reference data available: {ref_suggestion}")
+            prompt_text = f"Enter the full path to a local SingleR reference RDS file for {params['species']}"
+
         if module_3_is_selected:
             print(f"\n--- Required Local SingleR Reference for {params['species'].capitalize()} (Module 3 is selected) ---")
         else:
@@ -415,15 +577,20 @@ def main():
             allow_multiple=False,
             is_optional=is_ref_optional_for_module3,
             optional_default_skip="skip",
-            ensure_file=True
+            ensure_file=True,
+            default_path_suggestion=ref_suggestion
         )
 
         if local_ref_paths:
             params["local_singler_ref_path"] = local_ref_paths[0]
             print(f"Using local SingleR reference: {params['local_singler_ref_path']}")
         elif module_3_is_selected:
-            print(f"CRITICAL ERROR IN SETUP: Module 3 selected, but no local SingleR reference path was obtained. The R script will fail. Please ensure a valid path is entered.")
-            sys.exit(1)
+            if downloaded_data["reference_data"]:
+                print("⚠️ Using downloaded reference data since no custom path provided.")
+                params["local_singler_ref_path"] = downloaded_data["reference_data"]
+            else:
+                print(f"CRITICAL ERROR IN SETUP: Module 3 selected, but no local SingleR reference path was obtained. The R script will fail. Please ensure a valid path is entered.")
+                sys.exit(1)
         else:
             print("No local SingleR reference provided (optional and skipped, or Module 3 not selected).")
 
@@ -464,9 +631,17 @@ def main():
         ).lower()
 
 
-    params["ollama_model_name"] = OLLAMA_MODEL_NAME_DEFAULT
-    params["ollama_base_url"] = OLLAMA_BASE_URL_DEFAULT
+    params["ollama_model_name"] = "gemma3:12b-it-qat"
+    params["ollama_base_url"] = "http://localhost:11434"
 
+    # Save parameters
+    save_params(params)
+    print("\n✅ Custom mode setup complete!")
+    return True
+
+
+def save_params(params: Dict[str, Any]) -> bool:
+    """Save parameters to JSON file."""
     try:
         if not os.path.exists(params["output_directory"]):
             os.makedirs(params["output_directory"], exist_ok=True)
@@ -480,17 +655,21 @@ def main():
         print(f"\n--- Setup Complete ---")
         print(f"Next steps:")
         print(f"1. Ensure all R and Python dependencies have been correctly installed.")
-        print(f"   - Windows: See README_WINDOWS.md")
-        print(f"   - macOS: See README_MAC.md")
         print(f"2. Activate the 'impact_sc' conda environment: conda activate impact_sc")
         print(f"3. Run the pipeline using: python run_impact_sc_pipeline.py {params_path}")
-        print(f"   IMPORTANT: The 'run_impact_sc_pipeline.py' script MUST read all relevant parameters from '{params_path}' and set them as appropriate environment variables.")
-        print(f"   This includes 'h5ad_path_for_c2s' and 'c2s_model_path_or_name' for Module 02b, 'collectri_csv_path' and 'progeny_csv_path' for Module 04c, and the RDS path for Module 04f.")
-
+        
+        return True
     except IOError as e:
-        print(f"Error: Could not write parameters file to {params_path}. {e}")
+        print(f"Error: Could not write parameters file. {e}")
+        return False
     except Exception as e:
         print(f"An unexpected error occurred: {e}")
+        return False
 
 if __name__ == "__main__":
-    main()
+    if main():
+        # If setup is successful, exit
+        sys.exit(0)
+    else:
+        # If setup fails, exit with a non-zero code
+        sys.exit(1)
