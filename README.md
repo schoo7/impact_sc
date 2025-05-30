@@ -734,3 +734,51 @@ python run_impact_sc_pipeline.py /path/to/impact_sc_params.json
   - Python packages in dedicated conda environment
 
 For troubleshooting, see the updated [Troubleshooting section](#-troubleshooting) below. 
+
+## Installation and Usage
+
+### Complete Workflow
+
+1. **Clone repository**:
+   ```bash
+   git clone https://github.com/schoo7/impact_sc.git
+   cd impact_sc
+   ```
+
+2. **Initialize Conda** (required first time):
+   ```bash
+   conda init bash
+   source ~/.bashrc  # or restart your terminal
+   ```
+
+3. **Install dependencies**:
+   ```bash
+   chmod +x install_dependencies.sh
+   ./install_dependencies.sh
+   ```
+
+4. **Download data**:
+   ```bash
+   chmod +x download_data.sh
+   ./download_data.sh
+   ```
+
+5. **Run pipeline**:
+   ```bash
+   conda activate impact_sc
+   python interactive_setup.py --auto-demo
+   python run_impact_sc_pipeline.py demo_output/impact_sc_params.json
+   ```
+
+### Troubleshooting
+
+- If `conda activate` fails:
+  ```bash
+  conda init bash
+  source ~/.bashrc
+  ```
+  
+- For Apple Silicon Macs:
+  ```bash
+  export OPENBLAS=$(brew --prefix openblas)
+  ``` 
