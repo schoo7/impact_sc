@@ -10,29 +10,86 @@ import numpy as np
 import random
 from collections import Counter
 import os
-import torch
 import multiprocessing
+import time
+import sys
 
-# --- Performance Optimization Setup ---
-# Set number of CPU cores to use
-N_CORES = min(multiprocessing.cpu_count(), 8)  # Use up to 8 cores
-os.environ["OMP_NUM_THREADS"] = str(N_CORES)
-os.environ["MKL_NUM_THREADS"] = str(N_CORES)
-torch.set_num_threads(N_CORES)
+# --- Robust System Detection ---
+def detect_pytorch_and_device():
+    """Detect PyTorch availability and optimal device"""
+    try:
+        import torch
+        torch_available = True
+        torch_version = torch.__version__
+        print(f"✅ PyTorch {torch_version} detected")
+        
+        # Device detection with detailed info
+        if torch.cuda.is_available():
+            device = "cuda"
+            gpu_name = torch.cuda.get_device_name(0)
+            gpu_memory = torch.cuda.get_device_properties(0).total_memory / 1024**3
+            print(f"🚀 CUDA GPU detected: {gpu_name} ({gpu_memory:.1f}GB)")
+        elif hasattr(torch.backends, 'mps') and torch.backends.mps.is_available():
+            device = "mps"
+            print(f"🍎 Apple Silicon MPS acceleration available")
+        else:
+            device = "cpu"
+            print(f"💻 Using CPU processing")
+            
+        return torch, device, torch_available
+        
+    except ImportError:
+        print("⚠️ PyTorch not found - falling back to CPU-only mode")
+        return None, "cpu", False
 
-# Check for GPU availability
-DEVICE = "cuda" if torch.cuda.is_available() else "mps" if torch.backends.mps.is_available() else "cpu"
-print(f"🚀 Performance Settings:")
-print(f"   • Using {N_CORES} CPU cores")
-print(f"   • Device: {DEVICE}")
-print(f"   • PyTorch threads: {torch.get_num_threads()}")
+def setup_multiprocessing():
+    """Setup optimal multiprocessing configuration"""
+    try:
+        n_cores = multiprocessing.cpu_count()
+        optimal_cores = min(n_cores, 8)  # Cap at 8 cores
+        
+        # Set environment variables for parallel processing
+        os.environ["OMP_NUM_THREADS"] = str(optimal_cores)
+        os.environ["MKL_NUM_THREADS"] = str(optimal_cores)
+        
+        print(f"💾 System: {n_cores} cores detected, using {optimal_cores} cores")
+        return optimal_cores, True
+        
+    except Exception as e:
+        print(f"⚠️ Multiprocessing setup failed: {e}")
+        print("📝 Falling back to single-core processing")
+        return 1, False
 
+def progress_callback(step, total, message="Processing"):
+    """Simple progress indicator"""
+    percent = (step / total) * 100
+    bar_length = 30
+    filled_length = int(bar_length * step // total)
+    bar = '█' * filled_length + '-' * (bar_length - filled_length)
+    print(f'\r{message}: |{bar}| {percent:.1f}% ({step}/{total})', end='', flush=True)
+    if step == total:
+        print()  # New line when complete
+
+# --- Initialize System ---
+torch, DEVICE, torch_available = detect_pytorch_and_device()
+N_CORES, multiprocessing_available = setup_multiprocessing()
+
+# Configure PyTorch if available
+if torch_available:
+    torch.set_num_threads(N_CORES)
+    
 # --- Parameters & Setup ---
 SEED = 1234
-BATCH_SIZE = 32  # Process cells in batches for better memory management
+N_GENES = 200  # Increased from 5 to 200 for better representation
 random.seed(SEED)
 np.random.seed(SEED)
-torch.manual_seed(SEED)
+if torch_available:
+    torch.manual_seed(SEED)
+
+print(f"\n🔬 Analysis Parameters:")
+print(f"   • Number of genes: {N_GENES}")
+print(f"   • Random seed: {SEED}")
+print(f"   • Multiprocessing: {'✅ Enabled' if multiprocessing_available else '❌ Disabled'}")
 
 # Get file paths and species from environment variables set by the R script
 h5ad_file_path = os.getenv("H5AD_FILE_PATH")
@@ -84,36 +141,78 @@ adata.obs["sex"] = adata.obs.get("sex", "unknown_sex")
 obs_cols = ["cell_type", "tissue", "batch_condition", "organism", "sex"]
 
 print("Converting AnnData to Arrow format for Cell2Sentence...")
+start_time = time.time()
 try:
-    arrow_ds, vocab = cs.CSData.adata_to_arrow(
-        adata, 
-        random_state=SEED, 
-        sentence_delimiter=' ', 
-        label_col_names=obs_cols,
-        num_workers=min(N_CORES, 4)  # Parallelize data conversion
-    )
-    print("Arrow dataset created.")
+    # Try with parallel processing first
+    if multiprocessing_available:
+        print("🔄 Attempting parallel data conversion...")
+        arrow_ds, vocab = cs.CSData.adata_to_arrow(
+            adata, 
+            random_state=SEED, 
+            sentence_delimiter=' ', 
+            label_col_names=obs_cols,
+            num_workers=min(N_CORES, 4)  # Parallelize data conversion
+        )
+    else:
+        raise Exception("Multiprocessing not available, using single-core")
+    print("✅ Arrow dataset created (parallel mode).")
 except Exception as e:
-    print(f"Error converting AnnData to Arrow format: {e}")
-    exit(1)
+    print(f"⚠️ Parallel conversion failed: {e}")
+    print("🔄 Falling back to single-core conversion...")
+    try:
+        arrow_ds, vocab = cs.CSData.adata_to_arrow(
+            adata, 
+            random_state=SEED, 
+            sentence_delimiter=' ', 
+            label_col_names=obs_cols
+        )
+        print("✅ Arrow dataset created (single-core mode).")
+    except Exception as e2:
+        print(f"❌ Data conversion failed: {e2}")
+        exit(1)
+
+conversion_time = time.time() - start_time
+print(f"⏱️ Data conversion completed in {conversion_time:.2f} seconds")
 
 csdata_save_dir = os.path.join(c2s_output_dir, "csdata_arrow")
 if not os.path.exists(csdata_save_dir):
     os.makedirs(csdata_save_dir, exist_ok=True)
 
+print("Creating CSData object...")
+start_time = time.time()
 try:
-    csdata = cs.CSData.csdata_from_arrow(
-        arrow_dataset=arrow_ds, 
-        vocabulary=vocab, 
-        save_dir=csdata_save_dir, 
-        save_name="cell_embedding", 
-        dataset_backend="arrow",
-        num_workers=min(N_CORES, 4)  # Parallelize CSData creation
-    )
-    print("CSData object created.")
+    # Try with parallel processing first
+    if multiprocessing_available:
+        print("🔄 Attempting parallel CSData creation...")
+        csdata = cs.CSData.csdata_from_arrow(
+            arrow_dataset=arrow_ds, 
+            vocabulary=vocab, 
+            save_dir=csdata_save_dir, 
+            save_name="cell_embedding", 
+            dataset_backend="arrow",
+            num_workers=min(N_CORES, 4)  # Parallelize CSData creation
+        )
+    else:
+        raise Exception("Multiprocessing not available, using single-core")
+    print("✅ CSData object created (parallel mode).")
 except Exception as e:
-    print(f"Error creating CSData object: {e}")
-    exit(1)
+    print(f"⚠️ Parallel CSData creation failed: {e}")
+    print("🔄 Falling back to single-core CSData creation...")
+    try:
+        csdata = cs.CSData.csdata_from_arrow(
+            arrow_dataset=arrow_ds, 
+            vocabulary=vocab, 
+            save_dir=csdata_save_dir, 
+            save_name="cell_embedding", 
+            dataset_backend="arrow"
+        )
+        print("✅ CSData object created (single-core mode).")
+    except Exception as e2:
+        print(f"❌ CSData creation failed: {e2}")
+        exit(1)
+
+csdata_time = time.time() - start_time
+print(f"⏱️ CSData creation completed in {csdata_time:.2f} seconds")
 
 # Use the model identifier from environment variable (or default)
 model_path_to_load = c2s_model_identifier
@@ -147,53 +246,88 @@ except Exception as e:
     print("If the model was recently made private or moved from Hugging Face, this could also cause issues.")
     exit(1)
 
-print("Embedding cells...")
+print("\n🧬 Embedding cells...")
+start_time = time.time()
 try:
-    # Optimized embedding with batch processing and device specification
-    embedded_cells = cs.tasks.embed_cells(
-        csdata=csdata, 
-        csmodel=csmodel, 
-        n_genes=5,
-        batch_size=BATCH_SIZE,  # Process in batches
-        device=DEVICE,          # Use optimal device (GPU/MPS/CPU)
-        num_workers=min(N_CORES, 4)  # Parallel data loading
-    )
-    adata.obsm["c2s_cell_embeddings"] = embedded_cells
-    print("Cell embeddings generated and stored in AnnData.")
+    # Try optimized embedding with device and parallel processing
+    if torch_available and (DEVICE != "cpu" or multiprocessing_available):
+        print(f"🔄 Attempting optimized embedding (device: {DEVICE}, cores: {N_CORES})...")
+        embedded_cells = cs.tasks.embed_cells(
+            csdata=csdata, 
+            csmodel=csmodel, 
+            n_genes=N_GENES,
+            device=DEVICE,          # Use optimal device (GPU/MPS/CPU)
+            num_workers=min(N_CORES, 4) if multiprocessing_available else 1
+        )
+        print("✅ Cell embeddings generated (optimized mode).")
+    else:
+        raise Exception("No optimization available, using basic mode")
+        
 except Exception as e:
-    print(f"Error embedding cells: {e}")
-    # Fallback to basic embedding if optimized version fails
+    print(f"⚠️ Optimized embedding failed: {e}")
+    print("🔄 Falling back to basic embedding...")
     try:
-        print("Attempting fallback embedding without optimization...")
-        embedded_cells = cs.tasks.embed_cells(csdata=csdata, csmodel=csmodel, n_genes=5)
-        adata.obsm["c2s_cell_embeddings"] = embedded_cells
-        print("Fallback embedding successful.")
+        embedded_cells = cs.tasks.embed_cells(
+            csdata=csdata, 
+            csmodel=csmodel, 
+            n_genes=N_GENES
+        )
+        print("✅ Cell embeddings generated (basic mode).")
     except Exception as fallback_e:
-        print(f"Fallback embedding also failed: {fallback_e}")
+        print(f"❌ All embedding methods failed: {fallback_e}")
         exit(1)
 
-print("Predicting cell types...")
+# Store embeddings in AnnData
+adata.obsm["c2s_cell_embeddings"] = embedded_cells
+embedding_time = time.time() - start_time
+n_cells = adata.shape[0]
+print(f"⏱️ Cell embedding completed in {embedding_time:.2f} seconds")
+print(f"📊 Processed {n_cells} cells ({n_cells/embedding_time:.1f} cells/sec)")
+
+print("\n🔬 Predicting cell types...")
+start_time = time.time()
 try:
-    # Optimized prediction with batch processing
-    predicted_df = cs.tasks.predict_cell_types_of_data(
-        csdata=csdata, 
-        csmodel=csmodel, 
-        n_genes=5,
-        batch_size=BATCH_SIZE,  # Process in batches
-        device=DEVICE,          # Use optimal device
-        num_workers=min(N_CORES, 4)  # Parallel processing
-    )
-    print("Cell type prediction complete.")
+    # Try optimized prediction with device and parallel processing
+    if torch_available and (DEVICE != "cpu" or multiprocessing_available):
+        print(f"🔄 Attempting optimized prediction (device: {DEVICE}, cores: {N_CORES})...")
+        predicted_df = cs.tasks.predict_cell_types_of_data(
+            csdata=csdata, 
+            csmodel=csmodel, 
+            n_genes=N_GENES,
+            device=DEVICE,          # Use optimal device
+            num_workers=min(N_CORES, 4) if multiprocessing_available else 1
+        )
+        print("✅ Cell type prediction complete (optimized mode).")
+    else:
+        raise Exception("No optimization available, using basic mode")
+        
 except Exception as e:
-    print(f"Error predicting cell types: {e}")
-    # Fallback to basic prediction
+    print(f"⚠️ Optimized prediction failed: {e}")
+    print("🔄 Falling back to basic prediction...")
     try:
-        print("Attempting fallback prediction without optimization...")
-        predicted_df = cs.tasks.predict_cell_types_of_data(csdata=csdata, csmodel=csmodel, n_genes=5)
-        print("Fallback prediction successful.")
+        predicted_df = cs.tasks.predict_cell_types_of_data(
+            csdata=csdata, 
+            csmodel=csmodel, 
+            n_genes=N_GENES
+        )
+        print("✅ Cell type prediction complete (basic mode).")
     except Exception as fallback_e:
-        print(f"Fallback prediction also failed: {fallback_e}")
+        print(f"⚠️ Basic prediction failed: {fallback_e}")
+        print("📝 Creating empty DataFrame - prediction results unavailable")
         predicted_df = pd.DataFrame()
+
+prediction_time = time.time() - start_time
+print(f"⏱️ Cell type prediction completed in {prediction_time:.2f} seconds")
+
+# Summary statistics
+total_time = conversion_time + csdata_time + embedding_time + prediction_time
+print(f"\n📈 Performance Summary:")
+print(f"   • Data conversion: {conversion_time:.2f}s")
+print(f"   • CSData creation: {csdata_time:.2f}s") 
+print(f"   • Cell embedding: {embedding_time:.2f}s")
+print(f"   • Type prediction: {prediction_time:.2f}s")
+print(f"   • Total time: {total_time:.2f}s")
+print(f"   • Processing rate: {n_cells/total_time:.1f} cells/sec")
 
 try:
     embedded_df = pd.DataFrame(embedded_cells, index=adata.obs_names)
