@@ -10,38 +10,33 @@
 
 ## 🚀 Quick Start
 
-**Choose your platform:**
+### Unified Installation (All Platforms)
 
-<details>
-<summary><strong>🪟 Windows Users - Click to expand</strong></summary>
+1. **Clone the repository**:
+   ```bash
+   git clone https://github.com/schoo7/impact_sc.git
+   cd impact_sc
+   ```
 
-### Windows Quick Setup
-```bash
-# 1. Install prerequisites: Git Bash, R + Rtools, Conda
-# 2. Open Git Bash as Administrator
-cd /path/to/impact_sc
-bash install_r_packages_windows.sh
-bash setup_python_environment.sh
-conda activate impact_sc
-python interactive_setup.py
-```
-</details>
+2. **Run the unified installer**:
+   ```bash
+   chmod +x install_dependencies.sh
+   ./install_dependencies.sh
+   ```
+   This will:
+   - Detect your OS and architecture
+   - Install required R packages with proper Bioconductor version matching
+   - Set up a Python conda environment with all dependencies
 
-<details>
-<summary><strong>🍎 macOS Users - Click to expand</strong></summary>
-
-### macOS Quick Setup  
-```bash
-# 1. Install prerequisites: Xcode CLI, Homebrew, R, Conda
-xcode-select --install
-brew install r cmake pkg-config gfortran
-cd /path/to/impact_sc
-./install_r_packages_mac.sh
-bash setup_python_environment.sh
-conda activate impact_sc
-python interactive_setup.py
-```
-</details>
+3. **Verify installation**:
+   ```bash
+   # Test R installation
+   Rscript -e "library(Seurat); library(SingleR); cat('✅ R packages installed successfully!\n')"
+   
+   # Test Python environment
+   conda activate impact_sc
+   python -c "import scanpy, torch; print(f'✅ Scanpy {scanpy.__version__}, PyTorch {torch.__version__}')"
+   ```
 
 ---
 
