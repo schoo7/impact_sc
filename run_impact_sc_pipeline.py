@@ -77,7 +77,7 @@ def run_script(script_path: str, script_type: str, params: dict, module_name: st
             env["IMPACT_SC_FINAL_CELL_TYPE_SOURCE"] = "auto"
             print(f"Warning: 'final_cell_type_source' not found in params. Module 3 will use its default ('auto').")
 
-    elif module_name == "04a_basic_visulization":
+    elif module_name == "04a_basic_visualization":
         featureplot_genes = params.get("featureplot_genes", "")
         env["IMPACT_SC_FEATUREPLOT_GENES"] = featureplot_genes
         print(f"Setting IMPACT_SC_FEATUREPLOT_GENES for Module 4a to: '{featureplot_genes if featureplot_genes else 'empty (skip)'}'")
@@ -120,25 +120,25 @@ def run_script(script_path: str, script_type: str, params: dict, module_name: st
         env["IMPACT_SC_UCELL_PLOT_PATHWAY_NAME"] = ucell_plot_pathway_name
         print(f"Setting IMPACT_SC_UCELL_PLOT_PATHWAY_NAME for Module 4d to: '{ucell_plot_pathway_name if ucell_plot_pathway_name else 'empty (plot first)'}'")
 
-    elif module_name == "04f_pseudotime": 
+    elif module_name == "04e_pseudotime": 
         palantir_start_cell = params.get("conditional_paths", {}).get("palantir_start_cell")
         env["IMPACT_SC_PALANTIR_START_CELL"] = palantir_start_cell if palantir_start_cell else ""
         if palantir_start_cell: print(f"Setting IMPACT_SC_PALANTIR_START_CELL: {palantir_start_cell}")
         else: print("Warning: palantir_start_cell not set for Pseudotime.")
 
-    elif module_name == "04g_query_projection": 
-        query_rds_path = params.get("conditional_paths", {}).get("query_rds_path")
-        if query_rds_path and os.path.exists(query_rds_path):
-            env["IMPACT_SC_QUERY_RDS_PATH"] = query_rds_path
-            print(f"Setting IMPACT_SC_QUERY_RDS_PATH for Module 04g to: {query_rds_path}")
-        else:
-            env["IMPACT_SC_QUERY_RDS_PATH"] = ""
-            print(f"Warning: query_rds_path ('{query_rds_path}') for Module 04g not set or invalid. R script might skip or fail.")
-        
-        query_species = params.get("conditional_paths", {}).get("query_species")
-        env["IMPACT_SC_QUERY_SPECIES"] = query_species if query_species else params.get("species", "human")
-        if query_species: print(f"Setting IMPACT_SC_QUERY_SPECIES: {query_species}")
-        else: print(f"Warning: query_species not set for Query Projection. Defaulting to main dataset species: {env['IMPACT_SC_QUERY_SPECIES']}")
+    # elif module_name == "04f_query_projection":  # TEMPORARILY DISABLED
+    #     query_rds_path = params.get("conditional_paths", {}).get("query_rds_path")
+    #     if query_rds_path and os.path.exists(query_rds_path):
+    #         env["IMPACT_SC_QUERY_RDS_PATH"] = query_rds_path
+    #         print(f"Setting IMPACT_SC_QUERY_RDS_PATH for Module 04f to: {query_rds_path}")
+    #     else:
+    #         env["IMPACT_SC_QUERY_RDS_PATH"] = ""
+    #         print(f"Warning: query_rds_path ('{query_rds_path}') for Module 04f not set or invalid. R script might skip or fail.")
+    #     
+    #     query_species = params.get("conditional_paths", {}).get("query_species")
+    #     env["IMPACT_SC_QUERY_SPECIES"] = query_species if query_species else params.get("species", "human")
+    #     if query_species: print(f"Setting IMPACT_SC_QUERY_SPECIES: {query_species}")
+    #     else: print(f"Warning: query_species not set for Query Projection. Defaulting to main dataset species: {env['IMPACT_SC_QUERY_SPECIES']}")
 
     # --- Script execution logic ---
     stdout_data = None
@@ -324,12 +324,12 @@ def main():
         "02b_c2s": ("python", "02b_c2s.py"),
         "02c_load_c2s_result": ("R", "02c_load_c2s_result.R"),
         "03_cell_type_annotation": ("R", "03_cell_type_annotation.R"),
-        "04a_basic_visulization": ("R", "04a_basic_visulization.R"),
+        "04a_basic_visualization": ("R", "04a_basic_visualization.R"),
         "04b_DE_gsea": ("R", "04b_DE_gsea.R"),
         "04c_decoupler": ("R", "04c_decoupler.R"),
         "04d_ucell_scores": ("R", "04d_ucell_scores.R"),
-        "04e_pseudotime": ("R", "04e_pseudotime.R"), 
-        "04f_query_projection": ("R", "04f_query_projection.R")
+        "04e_pseudotime": ("R", "04e_pseudotime.R"),
+        # "04f_query_projection": ("R", "04f_query_projection.R")  # TEMPORARILY DISABLED
     }
 
     selected_modules = params.get("selected_modules", [])
@@ -337,6 +337,11 @@ def main():
         print("Warning: No modules selected in 'selected_modules' parameter.")
 
     for module_name in selected_modules:
+        # Temporarily skip 04f_query_projection module
+        if module_name == "04f_query_projection":
+            print(f"INFO: Module '{module_name}' is temporarily disabled. Skipping...")
+            continue
+            
         if module_name in script_map:
             script_type, script_file_name = script_map[module_name]
 
@@ -356,10 +361,10 @@ def main():
                     script_full_path = potential_path_relative_to_pipeline
                     print(f"Info: Found script {script_file_name} relative to pipeline script location: {script_full_path}")
                 else:
-                    potential_path_in_scripts_subdir = os.path.join(pipeline_script_dir, "scripts.AI", script_file_name)
+                    potential_path_in_scripts_subdir = os.path.join(pipeline_script_dir, "scripts_AI", script_file_name)
                     if os.path.exists(potential_path_in_scripts_subdir):
                         script_full_path = potential_path_in_scripts_subdir
-                        print(f"Info: Found script {script_file_name} in 'scripts.AI' subdirectory relative to pipeline script: {script_full_path}")
+                        print(f"Info: Found script {script_file_name} in 'scripts_AI' subdirectory relative to pipeline script: {script_full_path}")
                     else:
                         print(f"Error: Script file {script_file_name} (expected at {script_full_path}, {potential_path_relative_to_pipeline}, or {potential_path_in_scripts_subdir}) for module {module_name} not found. Skipping.")
                         continue

@@ -1,4 +1,4 @@
-# IMPACT-sc Script: 04g_query_projection.R
+# IMPACT-sc Script: 04f_query_projection.R
 # Purpose: Project a Query Dataset onto a Reference Embedding.
 # THIS MODULE IS OPTIONAL AND REQUIRES A 'query.RDS' FILE.
 

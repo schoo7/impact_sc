@@ -120,7 +120,7 @@ def select_modules() -> List[str]:
         "2b": "02b_c2s",
         "2c": "02c_load_c2s_result",
         "3": "03_cell_type_annotation",
-        "4a": "04a_basic_visulization",
+        "4a": "04a_basic_visualization",
         "4b": "04b_DE_gsea",
         "4c": "04c_decoupler",
         "4d": "04d_ucell_scores",
@@ -177,9 +177,9 @@ def main():
 
     print("\n--- Script Locations ---")
     pipeline_base_dir = os.path.dirname(os.path.abspath(__file__))
-    default_scripts_dir_suggestion = os.path.abspath(os.path.join(pipeline_base_dir, "..", "scripts.AI"))
+    default_scripts_dir_suggestion = os.path.abspath(os.path.join(pipeline_base_dir, "..", "scripts_AI"))
     if not os.path.isdir(default_scripts_dir_suggestion):
-        default_scripts_dir_suggestion = os.path.abspath(os.path.join(pipeline_base_dir, "scripts.AI"))
+        default_scripts_dir_suggestion = os.path.abspath(os.path.join(pipeline_base_dir, "scripts_AI"))
 
     scripts_dir_paths = ask_for_paths(
         "Enter the full path to the directory containing R and Python module scripts",
@@ -217,10 +217,27 @@ def main():
         except (FileNotFoundError, subprocess.TimeoutExpired):
             pass
         if not default_rscript_path_suggestion:
-            potential_r_paths.extend([
-                "/usr/local/bin/Rscript",
-                "/usr/bin/Rscript"
-            ])
+            # Enhanced Mac R path detection
+            mac_r_paths = [
+                "/opt/homebrew/bin/Rscript",                                      # Homebrew on Apple Silicon
+                "/usr/local/bin/Rscript",                                         # Homebrew on Intel Mac
+                "/Library/Frameworks/R.framework/Resources/bin/Rscript",         # CRAN R installer
+                "/Applications/R.app/Contents/Resources/bin/Rscript",            # R.app (alternative path)
+                "/usr/bin/Rscript",                                               # System R (rare)
+                "/opt/local/bin/Rscript"                                          # MacPorts R
+            ]
+            
+            # Check if we're on Mac and add Mac-specific paths
+            try:
+                import platform
+                if platform.system() == "Darwin":
+                    potential_r_paths.extend(mac_r_paths)
+                    print("🍎 Detected macOS - checking common R installation locations...")
+                else:
+                    potential_r_paths.extend(["/usr/local/bin/Rscript", "/usr/bin/Rscript"])
+            except:
+                potential_r_paths.extend(["/usr/local/bin/Rscript", "/usr/bin/Rscript"])
+    
     if not default_rscript_path_suggestion:
         for r_path in potential_r_paths:
             if os.path.exists(r_path):
@@ -344,7 +361,7 @@ def main():
     else:
         params["final_cell_type_source"] = "auto"
 
-    if "04a_basic_visulization" in params["selected_modules"]:
+    if "04a_basic_visualization" in params["selected_modules"]:
         print("\n--- Basic Visualization (Module 04a) Specific Inputs ---")
         params["featureplot_genes"] = ask_question(
             "Enter comma-separated genes for FeaturePlot (e.g., CD3D,CD14,MS4A1). Leave empty to skip.",
@@ -418,15 +435,15 @@ def main():
     }
 
 
-    if "04f_pseudotime" in params["selected_modules"]:
-        print("\n--- Pseudotime Analysis (Module 04f) Specific Input ---")
+    if "04e_pseudotime" in params["selected_modules"]:
+        print("\n--- Pseudotime Analysis (Module 04e) Specific Input ---")
         params["conditional_paths"]["palantir_start_cell"] = ask_question(
             "Enter the barcode/name of a known progenitor/start cell for Palantir pseudotime analysis (e.g., AAACCCAAGTCGAAGG-1)",
             "first_cell_barcode" 
         )
 
-    if "04g_query_projection" in params["selected_modules"]:
-        print("\n--- Query Dataset Projection (Module 04g) Specific Input ---")
+    if "04f_query_projection" in params["selected_modules"]:
+        print("\n--- Query Dataset Projection (Module 04f) Specific Input ---")
         query_rds_paths = ask_for_paths(
             "Enter the full path to the query.RDS file (e.g., F:/R_PROJECT/impact/ref/query.RDS)",
             allow_multiple=False,
@@ -437,7 +454,7 @@ def main():
             params["conditional_paths"]["query_rds_path"] = query_rds_paths[0]
             print(f"Query RDS path set to: {params['conditional_paths']['query_rds_path']}")
         else:
-            print(f"CRITICAL ERROR IN SETUP: Module 04g selected, but no query.RDS path was provided. R script will fail.")
+            print(f"CRITICAL ERROR IN SETUP: Module 04f selected, but no query.RDS path was provided. R script will fail.")
             sys.exit(1)
 
         params["conditional_paths"]["query_species"] = ask_question(
@@ -462,11 +479,13 @@ def main():
 
         print(f"\n--- Setup Complete ---")
         print(f"Next steps:")
-        print(f"1. Ensure all R and Python dependencies have been correctly installed (run install_dependencies.sh if needed).")
+        print(f"1. Ensure all R and Python dependencies have been correctly installed.")
+        print(f"   - Windows: See README_WINDOWS.md")
+        print(f"   - macOS: See README_MAC.md")
         print(f"2. Activate the 'impact_sc' conda environment: conda activate impact_sc")
         print(f"3. Run the pipeline using: python run_impact_sc_pipeline.py {params_path}")
         print(f"   IMPORTANT: The 'run_impact_sc_pipeline.py' script MUST read all relevant parameters from '{params_path}' and set them as appropriate environment variables.")
-        print(f"   This includes 'h5ad_path_for_c2s' and 'c2s_model_path_or_name' for Module 02b, 'collectri_csv_path' and 'progeny_csv_path' for Module 04c, and the RDS path for Module 04g.")
+        print(f"   This includes 'h5ad_path_for_c2s' and 'c2s_model_path_or_name' for Module 02b, 'collectri_csv_path' and 'progeny_csv_path' for Module 04c, and the RDS path for Module 04f.")
 
     except IOError as e:
         print(f"Error: Could not write parameters file to {params_path}. {e}")

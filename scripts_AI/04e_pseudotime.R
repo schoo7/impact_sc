@@ -1,4 +1,4 @@
-# IMPACT-sc Script: 04f_pseudotime_analysis.R
+# IMPACT-sc Script: 04e_pseudotime_analysis.R
 # Purpose: Perform Pseudotime Analysis (e.g., with Palantir via SeuratExtend).
 # THIS MODULE IS OPTIONAL AND DEPENDS ON SeuratExtend OR ALTERNATIVE TOOLS.
 
@@ -52,8 +52,8 @@ if (species == "human") {
 options(future.globals.maxSize = 4 * 1024^3)
 # --- End Script Parameters ---
 
-#### Module 4.6: Pseudotime Analysis with SeuratExtend (Palantir) ####
-message("Starting Module 4.6: Pseudotime Analysis (Palantir/SeuratExtend)")
+#### Module 4.5: Pseudotime Analysis with SeuratExtend (Palantir) ####
+message("Starting Module 4.5: Pseudotime Analysis (Palantir/SeuratExtend)")
 
 # Input: '04e_data_after_infercnv.RDS' (or previous if 04e skipped)
 # Output: Modifies 'data' object with pseudotime results, saves plots.
@@ -68,8 +68,8 @@ if (!file.exists(obj_prev_module_path)) {
 data <- tryCatch(readRDS(obj_prev_module_path), error=function(e){
   message(paste("Error loading input RDS:",e$message));NULL
 })
-if(is.null(data)) stop("Failed to load data for Module 4.6.")
-message("Loaded Seurat object for Module 4.6.")
+if(is.null(data)) stop("Failed to load data for Module 4.5.")
+message("Loaded Seurat object for Module 4.5.")
 DefaultAssay(data) <- "RNA"
 
 # Check if SeuratExtend functions for Palantir are available
@@ -121,7 +121,7 @@ tryCatch({
   saveRDS(data, intermediate_rds_path_04f)
   message(paste("Data object after (attempted) Pseudotime analysis saved to:", intermediate_rds_path_04f))
 }, error = function(e) {
-  warning(paste("Error saving data object after Module 4.6:", e$message))
+  warning(paste("Error saving data object after Module 4.5:", e$message))
 })
 
-message("Finished Module 4.6: Pseudotime Analysis")
+message("Finished Module 4.5: Pseudotime Analysis")
