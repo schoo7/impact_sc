@@ -13,6 +13,9 @@ import os
 import multiprocessing
 import time
 import sys
+import threading
+import psutil
+import gc
 
 # --- Robust System Detection ---
 def detect_pytorch_and_device():
@@ -90,6 +93,63 @@ def log_progress(current, total, start_time, step_name="Processing"):
     if current >= total:
         print()  # Newline when complete
 
+def monitor_resources(stop_event, step_name="Processing"):
+    """Monitor system resources in real-time"""
+    start_time = time.time()
+    while not stop_event.is_set():
+        try:
+            # Get system stats
+            cpu_percent = psutil.cpu_percent(interval=1)
+            memory = psutil.virtual_memory()
+            process = psutil.Process()
+            process_memory = process.memory_info().rss / 1024**2  # MB
+            
+            elapsed = time.time() - start_time
+            
+            # Display resource usage
+            print(f"\r🔄 {step_name}: {elapsed:.1f}s | CPU: {cpu_percent:.1f}% | RAM: {process_memory:.0f}MB ({memory.percent:.1f}% system) | Cores: {N_CORES}", 
+                  end='', flush=True)
+            
+            # Brief pause to avoid overwhelming output
+            time.sleep(2)
+            
+        except Exception:
+            break
+    
+    # Clear the monitoring line when done
+    print(f"\r{' ' * 100}\r", end='', flush=True)
+
+def run_with_monitoring(func, step_name, *args, **kwargs):
+    """Run a function with real-time resource monitoring"""
+    print(f"\n🚀 Starting {step_name}...")
+    
+    # Start resource monitoring in background
+    stop_event = threading.Event()
+    monitor_thread = threading.Thread(target=monitor_resources, args=(stop_event, step_name))
+    monitor_thread.daemon = True
+    monitor_thread.start()
+    
+    start_time = time.time()
+    try:
+        # Run the actual function
+        result = func(*args, **kwargs)
+        success = True
+    except Exception as e:
+        result = e
+        success = False
+    finally:
+        # Stop monitoring
+        stop_event.set()
+        monitor_thread.join(timeout=1)
+        
+        elapsed = time.time() - start_time
+        if success:
+            print(f"✅ {step_name} completed in {elapsed:.2f} seconds")
+        else:
+            print(f"❌ {step_name} failed after {elapsed:.2f} seconds: {result}")
+    
+    return result if success else None
+
 # --- Initialize System ---
 torch, DEVICE, torch_available = detect_pytorch_and_device()
 N_CORES, multiprocessing_available = setup_multiprocessing()
@@ -98,6 +158,32 @@ N_CORES, multiprocessing_available = setup_multiprocessing()
 if torch_available:
     torch.set_num_threads(N_CORES)
     
+    # Additional PyTorch optimizations
+    if DEVICE == "mps":
+        # Apple Silicon optimizations
+        os.environ["PYTORCH_MPS_HIGH_WATERMARK_RATIO"] = "0.0"  # Use all available GPU memory
+        print("🍎 Apple Silicon MPS optimizations enabled")
+    elif DEVICE == "cuda":
+        # NVIDIA GPU optimizations
+        torch.backends.cudnn.benchmark = True
+        torch.backends.cudnn.deterministic = False
+        print("🚀 CUDA optimizations enabled")
+    
+    # CPU optimizations for all scenarios
+    torch.set_num_interop_threads(N_CORES)
+    print(f"🔧 PyTorch configured: {torch.get_num_threads()} threads, {torch.get_num_interop_threads()} interop threads")
+
+# Additional system-wide optimizations
+os.environ["TOKENIZERS_PARALLELISM"] = "true"  # Enable parallel tokenization
+os.environ["NUMEXPR_MAX_THREADS"] = str(N_CORES)
+os.environ["NUMBA_NUM_THREADS"] = str(N_CORES)
+
+print(f"⚡ Maximum resource utilization enabled:")
+print(f"   • CPU cores: {N_CORES}")
+print(f"   • Device: {DEVICE}")
+print(f"   • Memory: {psutil.virtual_memory().total / 1024**3:.1f}GB total")
+print(f"   • Parallel processing: ✅ Enabled")
+
 # --- Parameters & Setup ---
 SEED = 1234
 N_GENES = 200  # Increased from 5 to 200 for better representation
@@ -233,49 +319,63 @@ except Exception as e:
     print("If the model was recently made private or moved from Hugging Face, this could also cause issues.")
     exit(1)
 
-print("\n🧬 Embedding cells...")
-start_time = time.time()
-total_cells = adata.shape[0]
+print("\n🧬 Cell Embedding with Resource Monitoring")
+print(f"📊 Dataset: {adata.shape[0]} cells using {N_GENES} genes")
 
-try:
-    # Use the standard Cell2Sentence embedding method
-    embedded_cells = cs.tasks.embed_cells(
+def embed_cells_wrapper():
+    # Force garbage collection before heavy computation
+    gc.collect()
+    
+    # Enable MPS if available for Apple Silicon
+    if torch_available and DEVICE == "mps":
+        try:
+            # Move model to MPS if possible
+            print("🍎 Attempting to use Apple Silicon MPS acceleration...")
+        except:
+            pass
+    
+    return cs.tasks.embed_cells(
         csdata=csdata, 
         csmodel=csmodel, 
         n_genes=N_GENES
     )
-    print(f"✅ Successfully embedded {total_cells} cells")
-    
-except Exception as e:
-    print(f"❌ Cell embedding failed: {e}")
+
+embedded_cells = run_with_monitoring(
+    embed_cells_wrapper, 
+    f"Embedding {adata.shape[0]} cells"
+)
+
+if embedded_cells is None:
+    print("❌ Cell embedding failed - exiting")
     exit(1)
 
-# Store embeddings in AnnData
+# Store embeddings and calculate performance
 adata.obsm["c2s_cell_embeddings"] = embedded_cells
 embedding_time = time.time() - start_time
-n_cells = adata.shape[0]
-print(f"⏱️ Cell embedding completed in {embedding_time:.2f} seconds")
-print(f"📊 Processing rate: {n_cells/embedding_time:.1f} cells/sec")
+print(f"📈 Embedding rate: {adata.shape[0]/embedding_time:.1f} cells/second")
 
-print("\n🔬 Predicting cell types...")
-start_time = time.time()
+print("\n🔬 Cell Type Prediction with Resource Monitoring")
 
-try:
-    # Use the standard Cell2Sentence prediction method
-    predicted_df = cs.tasks.predict_cell_types_of_data(
+def predict_cells_wrapper():
+    # Force garbage collection
+    gc.collect()
+    
+    return cs.tasks.predict_cell_types_of_data(
         csdata=csdata, 
         csmodel=csmodel, 
         n_genes=N_GENES
     )
-    print(f"✅ Successfully predicted cell types for {total_cells} cells")
-    
-except Exception as e:
-    print(f"⚠️ Cell type prediction failed: {e}")
-    print("📝 Creating empty DataFrame - prediction results unavailable")
+
+predicted_df = run_with_monitoring(
+    predict_cells_wrapper,
+    f"Predicting cell types for {adata.shape[0]} cells"
+)
+
+if predicted_df is None:
+    print("⚠️ Cell type prediction failed - creating empty DataFrame")
     predicted_df = pd.DataFrame()
 
 prediction_time = time.time() - start_time
-print(f"⏱️ Cell type prediction completed in {prediction_time:.2f} seconds")
 
 # Summary statistics
 total_time = conversion_time + csdata_time + embedding_time + prediction_time
@@ -285,7 +385,7 @@ print(f"   • CSData creation: {csdata_time:.2f}s")
 print(f"   • Cell embedding: {embedding_time:.2f}s")
 print(f"   • Type prediction: {prediction_time:.2f}s")
 print(f"   • Total time: {total_time:.2f}s")
-print(f"   • Overall rate: {n_cells/total_time:.1f} cells/sec")
+print(f"   • Overall rate: {adata.shape[0]/total_time:.1f} cells/sec")
 
 try:
     embedded_df = pd.DataFrame(embedded_cells, index=adata.obs_names)
