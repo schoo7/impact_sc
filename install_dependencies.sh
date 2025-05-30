@@ -166,6 +166,42 @@ case "$OS_NAME" in
     MINGW*|CYGWIN*|MSYS*)
         # Windows specific setup
         log "Windows (Git Bash/MSYS) detected"
+
+        # Detect R installation
+        if ! command -v R &> /dev/null; then
+            log "R not found in PATH."
+            log "Please provide the full path to the R executable (e.g., C:/Program Files/R/R-4.2.3/bin/R.exe)."
+            log "To find the R path:"
+            log "1. Open File Explorer and navigate to 'C:\\Program Files\\R'."
+            log "2. Look for a folder named 'R-<version>' (e.g., 'R-4.2.3')."
+            log "3. Inside, go to 'bin' and note the path to 'R.exe'."
+            log "4. Enter the path below (use forward slashes or double backslashes)."
+            
+            read -p "Enter the path to R.exe: " R_PATH
+            if [[ -f "$R_PATH" ]]; then
+                R_DIR=$(dirname "$R_PATH")
+                export PATH="$R_DIR:$PATH"
+                log "Added $R_DIR to PATH."
+            else
+                fail "Invalid R path. Please ensure the path points to R.exe and try again."
+            fi
+        fi
+
+        # Verify Rtools
+        if ! command -v make &> /dev/null; then
+            log "Rtools not found in PATH. Checking common locations..."
+            if [[ -d "/c/Rtools" ]]; then
+                export PATH="/c/Rtools/bin:/c/Rtools/mingw_64/bin:$PATH"
+            else
+                log "Rtools not found. Please ensure Rtools is installed and added to PATH."
+                log "Download Rtools from: https://cran.r-project.org/bin/windows/Rtools/"
+                fail "Rtools is required for compiling R packages on Windows."
+            fi
+        fi
+
+        # Set R library path to avoid permission issues
+        export R_LIBS_USER="$HOME/R/win-library/$(echo "$R_VERSION" | awk -F. '{print $1"."$2}')"
+        mkdir -p "$R_LIBS_USER"
         ;;
     *)
         fail "Unsupported operating system: $OS_NAME"
