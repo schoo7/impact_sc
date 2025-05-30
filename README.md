@@ -10,47 +10,88 @@
 
 ## 🚀 Quick Start
 
-### Unified Installation (All Platforms)
+### Complete Installation Workflow
 
-1. **Clone the repository**:
+1. **Install Dependencies**:
    ```bash
    git clone https://github.com/schoo7/impact_sc.git
    cd impact_sc
+   ./install_dependencies.sh  # Installs R, Python, and all required packages
    ```
 
-2. **Run the unified installer**:
+2. **Download Data**:
    ```bash
-   chmod +x install_dependencies.sh
-   ./install_dependencies.sh
+   ./download_data.sh  # Downloads demo data, models, and reference datasets (~3-5GB)
    ```
-   This will:
-   - Detect your OS and architecture (Windows, macOS, Linux)
-   - Install required system dependencies automatically
-   - Install required R packages with proper Bioconductor version matching (including celldex)
-   - Set up a Python conda environment with all dependencies
+   This includes:
+   - **Demo Data**: PBMC3k single-cell dataset from 10x Genomics
+   - **AI Models**: Pre-trained Cell2Sentence model for cell type prediction
+   - **Reference Data**: HumanPrimaryCellAtlas for cell type annotation
 
-3. **Download demo data and models**:
+3. **Verify Installation**:
    ```bash
-   chmod +x download_data.sh
-   ./download_data.sh
-   ```
-   This will download (~3-5GB):
-   - **Demo data**: PBMC3k dataset from 10x Genomics
-   - **AI Models**: Cell2Sentence pre-trained model
-   - **Reference data**: HumanPrimaryCellAtlasData for cell type annotation
-
-4. **Verify installation**:
-   ```bash
-   # Test R installation
-   Rscript -e "library(Seurat); library(SingleR); library(celldex); cat('✅ R packages installed successfully!\n')"
-   
-   # Test Python environment
    conda activate impact_sc
-   python -c "import scanpy, torch; print(f'✅ Scanpy {scanpy.__version__}, PyTorch {torch.__version__}')"
-   
-   # Check data availability
-   ls -la data/
+   python test_data_download.py  # Tests all components
    ```
+
+---
+
+## 📥 Data Download System
+
+The `download_data.sh` script provides automated downloading of all required data:
+
+### **1. Demo Data**
+- **Source**: 10x Genomics PBMC3k dataset
+- **Format**: Filtered gene-barcode matrices (HDF5)
+- **Size**: ~1.8MB (compressed), ~19MB (uncompressed)
+- **Path**: `data/demo/filtered_gene_bc_matrices/`
+
+### **2. AI Models**
+- **Model**: `vandijklab/C2S-Pythia-410m-cell-type-prediction`
+- **Framework**: PyTorch (via HuggingFace Transformers)
+- **Size**: ~1.5GB
+- **Path**: `data/models/`
+
+### **3. Reference Data**
+- **Dataset**: `HumanPrimaryCellAtlasData` from celldex
+- **Format**: RDS (R data object)
+- **Size**: ~1.2GB
+- **Path**: `data/reference/HumanPrimaryCellAtlasData.rds`
+
+### **Features**:
+- ✅ Automatic resume for interrupted downloads
+- ✅ Disk space verification (requires 5GB minimum)
+- ✅ Cross-platform support (wget/curl fallback)
+- ✅ Comprehensive logging (`download_data.log`)
+
+---
+
+## 🔍 Verification Script
+
+The `test_data_download.py` script checks:
+1. **Download Tools**: wget, curl, tar
+2. **Model Access**: Transformers library and model availability
+3. **R Packages**: celldex and other required packages
+
+Run verification:
+```bash
+python test_data_download.py
+```
+
+---
+
+## 📁 Updated Project Structure
+
+```
+impact_sc/
+├── data/                      # Downloaded data (auto-created)
+│   ├── demo/                 # PBMC3k demo dataset
+│   ├── models/               # Pre-trained AI models
+│   └── reference/            # Reference datasets
+├── download_data.sh          # Data download script
+├── test_data_download.py     # Data verification script
+└── ...
+```
 
 ---
 
