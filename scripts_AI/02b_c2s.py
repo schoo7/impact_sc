@@ -70,6 +70,26 @@ def progress_callback(step, total, message="Processing"):
     if step == total:
         print()  # New line when complete
 
+def log_progress(current, total, start_time, step_name="Processing"):
+    """Display live progress with time estimates and memory usage"""
+    elapsed = time.time() - start_time
+    percent = (current / total) * 100
+    rate = current / elapsed if elapsed > 0 else 0
+    remaining = (total - current) / rate if rate > 0 else 0
+    
+    # Memory monitoring
+    try:
+        import psutil
+        mem = psutil.Process().memory_info().rss / 1024**2  # MB
+        mem_str = f" | Memory: {mem:.1f}MB"
+    except:
+        mem_str = ""
+    
+    print(f"\r{step_name}: {current}/{total} ({percent:.1f}%) | {elapsed:.1f}s elapsed | ~{remaining:.1f}s remaining{mem_str}", 
+          end='', flush=True)
+    if current >= total:
+        print()  # Newline when complete
+
 # --- Initialize System ---
 torch, DEVICE, torch_available = detect_pytorch_and_device()
 N_CORES, multiprocessing_available = setup_multiprocessing()
@@ -143,33 +163,17 @@ obs_cols = ["cell_type", "tissue", "batch_condition", "organism", "sex"]
 print("Converting AnnData to Arrow format for Cell2Sentence...")
 start_time = time.time()
 try:
-    # Try with parallel processing first
-    if multiprocessing_available:
-        print("🔄 Attempting parallel data conversion...")
-        arrow_ds, vocab = cs.CSData.adata_to_arrow(
-            adata, 
-            random_state=SEED, 
-            sentence_delimiter=' ', 
-            label_col_names=obs_cols,
-            num_workers=min(N_CORES, 4)  # Parallelize data conversion
-        )
-    else:
-        raise Exception("Multiprocessing not available, using single-core")
-    print("✅ Arrow dataset created (parallel mode).")
+    # Cell2Sentence doesn't support num_workers parameter
+    arrow_ds, vocab = cs.CSData.adata_to_arrow(
+        adata, 
+        random_state=SEED, 
+        sentence_delimiter=' ', 
+        label_col_names=obs_cols
+    )
+    print("✅ Arrow dataset created.")
 except Exception as e:
-    print(f"⚠️ Parallel conversion failed: {e}")
-    print("🔄 Falling back to single-core conversion...")
-    try:
-        arrow_ds, vocab = cs.CSData.adata_to_arrow(
-            adata, 
-            random_state=SEED, 
-            sentence_delimiter=' ', 
-            label_col_names=obs_cols
-        )
-        print("✅ Arrow dataset created (single-core mode).")
-    except Exception as e2:
-        print(f"❌ Data conversion failed: {e2}")
-        exit(1)
+    print(f"❌ Data conversion failed: {e}")
+    exit(1)
 
 conversion_time = time.time() - start_time
 print(f"⏱️ Data conversion completed in {conversion_time:.2f} seconds")
@@ -181,35 +185,18 @@ if not os.path.exists(csdata_save_dir):
 print("Creating CSData object...")
 start_time = time.time()
 try:
-    # Try with parallel processing first
-    if multiprocessing_available:
-        print("🔄 Attempting parallel CSData creation...")
-        csdata = cs.CSData.csdata_from_arrow(
-            arrow_dataset=arrow_ds, 
-            vocabulary=vocab, 
-            save_dir=csdata_save_dir, 
-            save_name="cell_embedding", 
-            dataset_backend="arrow",
-            num_workers=min(N_CORES, 4)  # Parallelize CSData creation
-        )
-    else:
-        raise Exception("Multiprocessing not available, using single-core")
-    print("✅ CSData object created (parallel mode).")
+    # Cell2Sentence doesn't support num_workers parameter
+    csdata = cs.CSData.csdata_from_arrow(
+        arrow_dataset=arrow_ds, 
+        vocabulary=vocab, 
+        save_dir=csdata_save_dir, 
+        save_name="cell_embedding", 
+        dataset_backend="arrow"
+    )
+    print("✅ CSData object created.")
 except Exception as e:
-    print(f"⚠️ Parallel CSData creation failed: {e}")
-    print("🔄 Falling back to single-core CSData creation...")
-    try:
-        csdata = cs.CSData.csdata_from_arrow(
-            arrow_dataset=arrow_ds, 
-            vocabulary=vocab, 
-            save_dir=csdata_save_dir, 
-            save_name="cell_embedding", 
-            dataset_backend="arrow"
-        )
-        print("✅ CSData object created (single-core mode).")
-    except Exception as e2:
-        print(f"❌ CSData creation failed: {e2}")
-        exit(1)
+    print(f"❌ CSData creation failed: {e}")
+    exit(1)
 
 csdata_time = time.time() - start_time
 print(f"⏱️ CSData creation completed in {csdata_time:.2f} seconds")
@@ -248,73 +235,44 @@ except Exception as e:
 
 print("\n🧬 Embedding cells...")
 start_time = time.time()
+total_cells = adata.shape[0]
+
 try:
-    # Try optimized embedding with device and parallel processing
-    if torch_available and (DEVICE != "cpu" or multiprocessing_available):
-        print(f"🔄 Attempting optimized embedding (device: {DEVICE}, cores: {N_CORES})...")
-        embedded_cells = cs.tasks.embed_cells(
-            csdata=csdata, 
-            csmodel=csmodel, 
-            n_genes=N_GENES,
-            device=DEVICE,          # Use optimal device (GPU/MPS/CPU)
-            num_workers=min(N_CORES, 4) if multiprocessing_available else 1
-        )
-        print("✅ Cell embeddings generated (optimized mode).")
-    else:
-        raise Exception("No optimization available, using basic mode")
-        
+    # Use the standard Cell2Sentence embedding method
+    embedded_cells = cs.tasks.embed_cells(
+        csdata=csdata, 
+        csmodel=csmodel, 
+        n_genes=N_GENES
+    )
+    print(f"✅ Successfully embedded {total_cells} cells")
+    
 except Exception as e:
-    print(f"⚠️ Optimized embedding failed: {e}")
-    print("🔄 Falling back to basic embedding...")
-    try:
-        embedded_cells = cs.tasks.embed_cells(
-            csdata=csdata, 
-            csmodel=csmodel, 
-            n_genes=N_GENES
-        )
-        print("✅ Cell embeddings generated (basic mode).")
-    except Exception as fallback_e:
-        print(f"❌ All embedding methods failed: {fallback_e}")
-        exit(1)
+    print(f"❌ Cell embedding failed: {e}")
+    exit(1)
 
 # Store embeddings in AnnData
 adata.obsm["c2s_cell_embeddings"] = embedded_cells
 embedding_time = time.time() - start_time
 n_cells = adata.shape[0]
 print(f"⏱️ Cell embedding completed in {embedding_time:.2f} seconds")
-print(f"📊 Processed {n_cells} cells ({n_cells/embedding_time:.1f} cells/sec)")
+print(f"📊 Processing rate: {n_cells/embedding_time:.1f} cells/sec")
 
 print("\n🔬 Predicting cell types...")
 start_time = time.time()
+
 try:
-    # Try optimized prediction with device and parallel processing
-    if torch_available and (DEVICE != "cpu" or multiprocessing_available):
-        print(f"🔄 Attempting optimized prediction (device: {DEVICE}, cores: {N_CORES})...")
-        predicted_df = cs.tasks.predict_cell_types_of_data(
-            csdata=csdata, 
-            csmodel=csmodel, 
-            n_genes=N_GENES,
-            device=DEVICE,          # Use optimal device
-            num_workers=min(N_CORES, 4) if multiprocessing_available else 1
-        )
-        print("✅ Cell type prediction complete (optimized mode).")
-    else:
-        raise Exception("No optimization available, using basic mode")
-        
+    # Use the standard Cell2Sentence prediction method
+    predicted_df = cs.tasks.predict_cell_types_of_data(
+        csdata=csdata, 
+        csmodel=csmodel, 
+        n_genes=N_GENES
+    )
+    print(f"✅ Successfully predicted cell types for {total_cells} cells")
+    
 except Exception as e:
-    print(f"⚠️ Optimized prediction failed: {e}")
-    print("🔄 Falling back to basic prediction...")
-    try:
-        predicted_df = cs.tasks.predict_cell_types_of_data(
-            csdata=csdata, 
-            csmodel=csmodel, 
-            n_genes=N_GENES
-        )
-        print("✅ Cell type prediction complete (basic mode).")
-    except Exception as fallback_e:
-        print(f"⚠️ Basic prediction failed: {fallback_e}")
-        print("📝 Creating empty DataFrame - prediction results unavailable")
-        predicted_df = pd.DataFrame()
+    print(f"⚠️ Cell type prediction failed: {e}")
+    print("📝 Creating empty DataFrame - prediction results unavailable")
+    predicted_df = pd.DataFrame()
 
 prediction_time = time.time() - start_time
 print(f"⏱️ Cell type prediction completed in {prediction_time:.2f} seconds")
@@ -327,7 +285,7 @@ print(f"   • CSData creation: {csdata_time:.2f}s")
 print(f"   • Cell embedding: {embedding_time:.2f}s")
 print(f"   • Type prediction: {prediction_time:.2f}s")
 print(f"   • Total time: {total_time:.2f}s")
-print(f"   • Processing rate: {n_cells/total_time:.1f} cells/sec")
+print(f"   • Overall rate: {n_cells/total_time:.1f} cells/sec")
 
 try:
     embedded_df = pd.DataFrame(embedded_cells, index=adata.obs_names)
