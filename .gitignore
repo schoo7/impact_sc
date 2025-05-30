@@ -1,0 +1,22 @@
+# Data directories
+data/
+
+# Downloaded files
+*.tar.gz
+*.zip
+*.rds
+*.h5ad
+*.h5
+
+# Log files
+*.log
+
+# Environment files
+.env
+*.env.local
+
+# IDE specific files
+.vscode/
+.idea/
+*.swp
+*.swo

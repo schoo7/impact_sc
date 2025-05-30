@@ -748,7 +748,7 @@ For troubleshooting, see the updated [Troubleshooting section](#-troubleshooting
 2. **Initialize Conda** (required first time):
    ```bash
    conda init bash
-   source ~/.bashrc  # or restart your terminal
+   source ~/.bashrc
    ```
 
 3. **Install dependencies**:
