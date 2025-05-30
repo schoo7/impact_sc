@@ -5,6 +5,24 @@
 
 set -euo pipefail
 
+# ====== Start of Conda Initialization ======
+# Check if conda is installed
+if ! command -v conda &> /dev/null; then
+    echo "Error: Conda not found. Please install Miniconda/Anaconda first."
+    exit 1
+fi
+
+# Initialize conda for bash if not already initialized
+if ! grep -q "conda initialize" ~/.bashrc; then
+    echo "Initializing conda for bash..."
+    conda init bash
+    echo "Conda initialized. Please restart your shell or run 'source ~/.bashrc'"
+fi
+
+# Source bashrc to make conda available in current shell
+source ~/.bashrc
+# ====== End of Conda Initialization ======
+
 # -------------------------
 # Configuration
 # -------------------------
