@@ -1,11 +1,13 @@
-IMPACT-sc: Integrated Multi-Pipeline Analysis and Characterization of Single-Cell Data
+# IMPACT-sc: Integrated Multi-Pipeline Analysis and Characterization of Single-Cell Data
 
+<p align="center">
+  <img src="impact_sc_logo.png" alt="IMPACT-sc Logo" width="800"/>
+</p>
 
-IMPACT-sc is a modular pipeline for comprehensive single-cell RNA sequencing (scRNA-seq) data analysis, integrating R and Python scripts for everything from data processing to advanced downstream analyses.
+**IMPACT-sc** is a modular pipeline for comprehensive single-cell RNA sequencing (scRNA-seq) data analysis, integrating R and Python scripts for everything from data processing to advanced downstream analyses.
 
 ---
 
-🚀 Quick Start
 
 ### Complete Installation Workflow
 
