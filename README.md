@@ -140,18 +140,6 @@ Run verification:
 python test_data_download.py
 ```
 
-## 📁 Updated Project Structure
-```
-impact_sc/
-├── data/                      # Downloaded data (auto-created)
-│   ├── demo/                 # PBMC3k demo dataset
-│   ├── models/               # Pre-trained AI models
-│   └── reference/            # Reference datasets
-├── download_data.sh          # Data download script
-├── test_data_download.py     # Data verification script
-└── ...
-```
-
 ## 📋 Overview
 IMPACT-sc consists of three main components:
 1. **Dependency Installation** - Set up R and Python environments
@@ -356,7 +344,7 @@ conda activate impact_sc
 python interactive_setup.py
 ```
 
-### Step 1: Demo Input
+### Step 2: Demo Input
 ```text
 --- Welcome to IMPACT-sc Interactive Setup ---
 ...
@@ -583,7 +571,7 @@ impact_sc/
 └── output/                        # Results (created during setup)
     ├── impact_sc_params.json     # Configuration file
     ├── *_log.txt                 # Module logs
-    └── results/                   # Analysis outputs
+    └── results                   # Analysis outputs
 ```
 
 ---
