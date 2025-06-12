@@ -142,7 +142,7 @@ def select_modules() -> List[str]:
         "3": "03_cell_type_annotation",
         "4a": "04a_basic_visualization",
         "4b": "04b_DE_gsea",
-        "4c": "04c_decoupler (Runs faster on R >= 4.3.0)",
+        "4c": "04c_decoupler (Requires R >= 4.3.0)",
         "4d": "04d_ucell_scores",
         "4e": "04e_pseudotime", 
         "4f": "04f_query_projection",
@@ -358,8 +358,6 @@ def setup_demo_mode(downloaded_data: Dict[str, str], rscript_executable_path: st
         return False
 
     params["final_cell_type_source"] = "auto"
-    # --- [MODIFICATION] ---
-    # Set a default reduction method for the demo mode.
     params["reduction_method"] = "umap"
     params["featureplot_genes"] = "CD3D,CD14,MS4A1,FCGR3A,LYZ,PPBP"
     params["dotplot_gene_groups"] = [
@@ -368,8 +366,6 @@ def setup_demo_mode(downloaded_data: Dict[str, str], rscript_executable_path: st
         {"name": "Myeloid_markers", "genes": ["CD14", "LYZ", "FCGR3A", "CST3"]}
     ]
     params["de_gsea_plot_gene"] = "CD3D"
-    params["collectri_csv_path"] = None 
-    params["progeny_csv_path"] = None 
     params["msigdb_category"] = "H"
     params["ucell_plot_pathway_name"] = ""
     params["conditional_paths"] = {"query_rds_path": None, "query_species": None, "palantir_start_cell": None}
@@ -509,24 +505,13 @@ def setup_custom_mode(downloaded_data: Dict[str, str], rscript_executable_path: 
             print("CRITICAL ERROR IN SETUP: Module 02b_c2s selected, but no Cell2Sentence model path/name was provided.")
             sys.exit(1)
 
-    params["collectri_csv_path"] = None
-    params["progeny_csv_path"] = None
+    # --- [MODIFICATION] ---
+    # The following block that asks for CollecTRI and PROGENy CSV paths has been removed
+    # because the R script will now download them automatically.
     if "04c_decoupler" in params["selected_modules"]:
-        print("\n--- DecoupleR Network CSV Paths (Module 04c) ---")
-        print("Note: This module runs significantly faster with R version 4.3.0 or higher.")
-        collectri_prompt = f"Enter the full path to the CollecTRI CSV file for {params['species']} (e.g., collectri_{params['species']}.csv)"
-        collectri_paths = ask_for_paths(collectri_prompt, allow_multiple=False, is_optional=False, ensure_file=True)
-        if collectri_paths: params["collectri_csv_path"] = collectri_paths[0]
-        else:
-            print(f"CRITICAL ERROR IN SETUP: Module 04c (DecoupleR) selected, but no CollecTRI CSV path was obtained.")
-            sys.exit(1)
-
-        if params["species"] == "human":
-            progeny_prompt = "Enter the full path to the PROGENy CSV file for human (e.g., progeny_human.csv)"
-            progeny_paths = ask_for_paths(progeny_prompt, allow_multiple=False, is_optional=True, optional_default_skip="skip", ensure_file=True)
-            if progeny_paths: params["progeny_csv_path"] = progeny_paths[0]
-            else: print("No PROGENy CSV path provided for human (or skipped).")
-        else: params["progeny_csv_path"] = None
+        print("\n--- DecoupleR Network Information (Module 04c) ---")
+        print("Note: This module requires R version 4.3.0 or higher to run.")
+        print("CollecTRI and PROGENy networks will be downloaded automatically based on the selected species.")
 
     params["spatial_data_rds_path"] = None
     if "04g_card" in params["selected_modules"]:
@@ -552,8 +537,6 @@ def setup_custom_mode(downloaded_data: Dict[str, str], rscript_executable_path: 
 
     if "04a_basic_visualization" in params["selected_modules"]:
         print("\n--- Basic Visualization (Module 04a) Specific Inputs ---")
-        # --- [MODIFICATION] ---
-        # Updated question to allow user to select from the expanded list of reduction methods.
         params["reduction_method"] = ask_question(
             "Enter the preferred reduction method for plotting",
             default_value="umap",
@@ -562,7 +545,7 @@ def setup_custom_mode(downloaded_data: Dict[str, str], rscript_executable_path: 
         params["featureplot_genes"] = ask_question("Enter comma-separated genes for FeaturePlot. Leave empty to skip.", "")
         params["dotplot_gene_groups"] = ask_for_dotplot_genes()
     else:
-        params["reduction_method"] = "umap" # Also add a default here
+        params["reduction_method"] = "umap"
         params["featureplot_genes"] = ""
         params["dotplot_gene_groups"] = []
 
