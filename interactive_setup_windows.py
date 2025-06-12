@@ -142,29 +142,31 @@ def select_modules() -> List[str]:
         "3": "03_cell_type_annotation",
         "4a": "04a_basic_visualization",
         "4b": "04b_DE_gsea",
-        "4c": "04c_decoupler",
+        "4c": "04c_decoupler (Runs faster on R >= 4.3.0)",
         "4d": "04d_ucell_scores",
         "4e": "04e_pseudotime", 
-        "4f": "04f_query_projection"
+        "4f": "04f_query_projection",
+        "4g": "04g_card (Requires R >= 4.3.0)"
     }
     print("\nAvailable IMPACT-sc Modules:")
     for key, name in all_modules.items():
         print(f"  {key}: {name}")
 
     selected_keys_str = ask_question("Enter the keys of modules to run, separated by commas (e.g., 1,2a,2b,2c,3,4a)")
-    selected_keys = [key.strip().lower() for key in selected_keys_str.split(',') if key.strip()] # Ensure no empty keys
+    selected_keys = [key.strip().lower() for key in selected_keys_str.split(',') if key.strip()]
 
     selected_modules_list = []
     valid_keys_found = False
     for key in selected_keys:
-        if key in all_modules:
-            selected_modules_list.append(all_modules[key])
+        # Extract the module name from the display text
+        module_name = all_modules.get(key, "").split(" (")[0]
+        if module_name:
+            selected_modules_list.append(module_name)
             valid_keys_found = True
         else:
             print(f"Warning: Module key '{key}' is not valid and will be ignored.")
 
-    if not valid_keys_found : # If no valid keys were entered at all
-        # Default to a basic set or ask again, here defaulting to Module 1.
+    if not valid_keys_found :
         print("No valid modules selected or input was empty. Defaulting to Module 1 only.")
         return ["01_data_processing"]
     return selected_modules_list
@@ -180,7 +182,7 @@ def ask_for_dotplot_genes() -> List[Dict[str, Any]]:
 
         group_name = ask_question("Enter the name for this gene group (e.g., B_cell_markers)")
         genes_str = ask_question(f"Enter comma-separated genes for '{group_name}' (e.g., MS4A1,CD79A)")
-        genes_list = [gene.strip() for gene in genes_str.split(',') if gene.strip()] # Ensure no empty gene names
+        genes_list = [gene.strip() for gene in genes_str.split(',') if gene.strip()]
 
         if group_name and genes_list:
             dotplot_groups.append({"name": group_name, "genes": genes_list})
@@ -197,20 +199,18 @@ def check_downloaded_data() -> Dict[str, str]:
     current_dir = normalize_path(os.path.dirname(os.path.abspath(__file__)))
     data_paths = {
         "demo_data": None,
-        "c2s_model": None, # This is usually a HF name, not a path to normalize here
-        "reference_data": None
+        "c2s_model": None,
+        "default_reference_data": None
     }
     
-    # Check for demo data
     demo_path_base = normalize_path(os.path.join(current_dir, "data", "demo", "filtered_gene_bc_matrices"))
     if os.path.exists(demo_path_base):
         hg19_path = normalize_path(os.path.join(demo_path_base, "hg19"))
         if os.path.exists(hg19_path):
             matrix_file = normalize_path(os.path.join(hg19_path, "matrix.mtx"))
-            genes_file = normalize_path(os.path.join(hg19_path, "genes.tsv")) # Often genes.tsv.gz
-            barcodes_file = normalize_path(os.path.join(hg19_path, "barcodes.tsv")) # Often barcodes.tsv.gz
+            genes_file = normalize_path(os.path.join(hg19_path, "genes.tsv"))
+            barcodes_file = normalize_path(os.path.join(hg19_path, "barcodes.tsv"))
             
-            # Check for both .tsv and .tsv.gz versions for flexibility
             genes_file_gz = genes_file + ".gz"
             barcodes_file_gz = barcodes_file + ".gz"
 
@@ -221,38 +221,29 @@ def check_downloaded_data() -> Dict[str, str]:
                 print(f"Found demo data: {hg19_path}")
             else:
                 print(f"Demo directory found but missing some 10x files (matrix.mtx, genes.tsv/genes.tsv.gz, barcodes.tsv/barcodes.tsv.gz): {hg19_path}")
-        else: # Fallback to base demo path if hg19 not structured as expected but base exists
+        else:
             data_paths["demo_data"] = demo_path_base 
             print(f"Found demo data (base directory): {demo_path_base}")
     else:
         print(f"Demo data directory not found at: {demo_path_base}")
     
-    # Check for Cell2Sentence model cache (this is more of a hint, actual model is by name)
     models_dir = normalize_path(os.path.join(current_dir, "data", "models"))
     if os.path.exists(models_dir):
         import glob
-        # Check for any files that might indicate a cached model
         model_files = glob.glob(normalize_path(os.path.join(models_dir, "**", "*C2S*")), recursive=True) + \
                      glob.glob(normalize_path(os.path.join(models_dir, "**", "*Pythia*")), recursive=True)
         if model_files:
-            data_paths["c2s_model"] = "vandijklab/C2S-Pythia-410m-cell-type-prediction" # Still use HF name
+            data_paths["c2s_model"] = "vandijklab/C2S-Pythia-410m-cell-type-prediction"
             print(f"Found potential Cell2Sentence model cache in: {models_dir} (will use HuggingFace name for robustness)")
         else:
             print(f"Models directory exists but no obvious cached C2S/Pythia files found: {models_dir}")
     
-    # Check for reference data
-    ref_path = normalize_path(os.path.join(current_dir, "data", "reference", "HumanPrimaryCellAtlasData.rds"))
+    ref_path = normalize_path(os.path.join(current_dir, "data", "reference", "bmcite_demo.rds"))
     if os.path.exists(ref_path):
-        data_paths["reference_data"] = ref_path
-        print(f"Found reference data: {ref_path}")
+        data_paths["default_reference_data"] = ref_path
+        print(f"Found default reference data: {ref_path}")
     else:
-        print(f"Reference data (HumanPrimaryCellAtlasData.rds) not found at: {ref_path}")
-        # Attempt to find common alternatives if primary one is missing
-        mouse_ref_path = normalize_path(os.path.join(current_dir, "data", "reference", "MouseRNAseqData.rds"))
-        if os.path.exists(mouse_ref_path):
-            print(f"Found alternative reference (MouseRNAseqData.rds) at: {mouse_ref_path}. Will suggest if mouse is selected.")
-            # Storing this requires a bit more logic if we want to auto-pick based on species.
-            # For now, just a print. The user will be asked for a species-specific ref later.
+        print(f"Default reference data (bmcite_demo.rds) not found at: {ref_path}")
     
     return data_paths
 
@@ -262,8 +253,8 @@ def ask_demo_mode() -> bool:
     print("IMPACT-sc Setup Mode Selection")
     print("="*60)
     
-    downloaded_data = check_downloaded_data() # check_downloaded_data now returns normalized paths
-    has_demo_data = downloaded_data.get("demo_data") is not None # Use .get for safety
+    downloaded_data = check_downloaded_data()
+    has_demo_data = downloaded_data.get("demo_data") is not None
     
     if has_demo_data:
         print("Demo data detected! You can run in demo mode.")
@@ -274,7 +265,7 @@ def ask_demo_mode() -> bool:
         
         mode_choice = ask_question(
             "Choose setup mode:\n  [demo] - Use demo data and auto-configure\n  [custom] - Configure your own data",
-            "demo", # Default to demo if data is available
+            "demo",
             choices=["demo", "custom"]
         ).lower()
         
@@ -282,27 +273,26 @@ def ask_demo_mode() -> bool:
     else:
         print("No demo data found. Run './download_data.sh' first to enable demo mode.")
         print("Proceeding with custom setup...")
-        return False # Force custom setup if no demo data
+        return False
 
 def main():
     print("--- Welcome to IMPACT-sc Interactive Setup ---")
     
-    downloaded_data = check_downloaded_data() # Paths are normalized here
+    downloaded_data = check_downloaded_data()
     use_demo_mode = ask_demo_mode()
     
-    # Always ask for Rscript path, regardless of mode
     print("\n--- Rscript Executable Path ---")
-    default_rscript_path_suggestion = auto_detect_rscript() # Normalized path
+    default_rscript_path_suggestion = auto_detect_rscript()
     
-    rscript_exe_paths = ask_for_paths( # ask_for_paths returns normalized paths
-        "Enter the full path to your Rscript executable (e.g., F:/R-4.4.2/bin/x64/Rscript.exe)",
+    rscript_exe_paths = ask_for_paths(
+        "Enter the full path to your Rscript executable (recommended: .../R-4.2.3/bin/x64/Rscript.exe)",
         ensure_file=True,
         default_path_suggestion=default_rscript_path_suggestion
     )
     if not rscript_exe_paths: 
         print("CRITICAL ERROR: Rscript executable path not provided or invalid. Exiting.")
         sys.exit(1)
-    rscript_executable_path = rscript_exe_paths[0] # This is already normalized
+    rscript_executable_path = rscript_exe_paths[0]
     print(f"Rscript executable path set to: {rscript_executable_path}")
 
     if use_demo_mode:
@@ -323,19 +313,16 @@ def setup_demo_mode(downloaded_data: Dict[str, str], rscript_executable_path: st
     ).lower() == "yes"
 
     params: Dict[str, Any] = {}
-    # Normalize base directory path
     pipeline_base_dir = normalize_path(os.path.dirname(os.path.abspath(__file__)))
     
-    # Basic configuration
-    # Join paths and normalize
     params["input_r_scripts_dir"] = normalize_path(os.path.join(pipeline_base_dir, "scripts_AI"))
     params["input_python_scripts_dir"] = normalize_path(os.path.join(pipeline_base_dir, "scripts_AI"))
-    params["rscript_executable_path"] = rscript_executable_path # Already obtained and normalized in main()
+    params["rscript_executable_path"] = rscript_executable_path
     params["species"] = "human"
     params["output_directory"] = normalize_path(os.path.abspath("demo_output"))
     
-    if downloaded_data.get("demo_data"): # Use .get for safety
-        params["input_data_paths"] = [downloaded_data["demo_data"]] # Already normalized from check_downloaded_data
+    if downloaded_data.get("demo_data"):
+        params["input_data_paths"] = [downloaded_data["demo_data"]]
         print(f"Using demo data: {downloaded_data['demo_data']}")
     else:
         print("Demo data not found! This should have been caught by ask_demo_mode.")
@@ -349,7 +336,6 @@ def setup_demo_mode(downloaded_data: Dict[str, str], rscript_executable_path: st
             "02c_load_c2s_result", "03_cell_type_annotation", "04a_basic_visualization"
         ]
         params["h5ad_path_for_c2s"] = normalize_path(os.path.join(params["output_directory"], "02_module2_for_c2s.h5ad"))
-        # c2s_model is a name, not a path to normalize here usually
         params["c2s_model_path_or_name"] = downloaded_data.get("c2s_model", "vandijklab/C2S-Pythia-410m-cell-type-prediction")
         if downloaded_data.get("c2s_model"): print(f"Using potentially cached Cell2Sentence model (name: {params['c2s_model_path_or_name']})")
         else: print("No cached model hint found. Will download C2S model on first use.")
@@ -359,11 +345,18 @@ def setup_demo_mode(downloaded_data: Dict[str, str], rscript_executable_path: st
         params["h5ad_path_for_c2s"] = None
         params["c2s_model_path_or_name"] = None
     
-    # Reference data is already normalized from check_downloaded_data
-    params["local_singler_ref_path"] = downloaded_data.get("reference_data") 
-    if params["local_singler_ref_path"]: print(f"Using downloaded reference data: {params['local_singler_ref_path']}")
-    else: print("No reference data found. Will use online Celldex if Module 3 is run.")
+    print("Setting SingleR reference to the downloaded local file for demo.")
+    default_ref_path = normalize_path(os.path.join(pipeline_base_dir, "data", "reference", "bmcite_demo.rds"))
     
+    if os.path.exists(default_ref_path):
+        params["local_singler_ref_path"] = default_ref_path
+        params["local_singler_ref_label_col"] = "celltype.l1"
+        print(f"Using local reference for demo: {default_ref_path}")
+    else:
+        print(f"CRITICAL ERROR for Demo Mode: The default reference file was not found at the expected path: {default_ref_path}")
+        print("Please run './download_data.sh' to download the required data.")
+        return False
+
     params["featureplot_genes"] = "CD3D,CD14,MS4A1,FCGR3A,LYZ,PPBP"
     params["dotplot_gene_groups"] = [
         {"name": "T_cell_markers", "genes": ["CD3D", "CD3E", "CD8A", "CD4"]},
@@ -377,6 +370,7 @@ def setup_demo_mode(downloaded_data: Dict[str, str], rscript_executable_path: st
     params["msigdb_category"] = "H"
     params["ucell_plot_pathway_name"] = ""
     params["conditional_paths"] = {"query_rds_path": None, "query_species": None, "palantir_start_cell": None}
+    params["spatial_data_rds_path"] = None # Not used in demo
     params["ollama_model_name"] = OLLAMA_MODEL_NAME_DEFAULT
     params["ollama_base_url"] = OLLAMA_BASE_URL_DEFAULT
     
@@ -397,7 +391,7 @@ def auto_detect_rscript() -> str:
             result = subprocess.run(['which', 'Rscript'], capture_output=True, text=True, check=False, timeout=5)
         
         if result.returncode == 0 and result.stdout.strip():
-            rscript_path = result.stdout.strip().split('\n')[0] # Take the first result
+            rscript_path = result.stdout.strip().split('\n')[0]
     except (FileNotFoundError, subprocess.TimeoutExpired, subprocess.CalledProcessError):
         pass 
     
@@ -409,10 +403,10 @@ def auto_detect_rscript() -> str:
         fallback_paths = ["/opt/homebrew/bin/Rscript", "/usr/local/bin/Rscript", "/Library/Frameworks/R.framework/Resources/bin/Rscript"]
     elif platform.system() == "Windows":
         program_files = os.environ.get("ProgramFiles", "C:\\Program Files")
-        versions = ["R-4.4.2", "R-4.3.1", "R-4.3.0", "R-4.2.3", "R-4.1.3", "R-4.0.5"] # Common recent versions
+        versions = ["R-4.2.3", "R-4.3.1", "R-4.3.0", "R-4.4.2", "R-4.1.3", "R-4.0.5"]
         for ver in versions:
             fallback_paths.append(os.path.join(program_files, "R", ver, "bin", "x64", "Rscript.exe"))
-            fallback_paths.append(os.path.join(program_files, "R", ver, "bin", "Rscript.exe")) # For non-x64 installs
+            fallback_paths.append(os.path.join(program_files, "R", ver, "bin", "Rscript.exe"))
     else: 
         fallback_paths = ["/usr/local/bin/Rscript", "/usr/bin/Rscript"]
     
@@ -421,7 +415,7 @@ def auto_detect_rscript() -> str:
         if os.path.exists(normalized_attempt) and os.path.isfile(normalized_attempt):
             return normalized_attempt
     
-    return normalize_path("Rscript") # Default fallback, assumes it's in PATH
+    return normalize_path("Rscript")
 
 
 def setup_custom_mode(downloaded_data: Dict[str, str], rscript_executable_path: str):
@@ -430,7 +424,7 @@ def setup_custom_mode(downloaded_data: Dict[str, str], rscript_executable_path: 
     print("Please provide the following information:")
 
     params: Dict[str, Any] = {}
-    params["rscript_executable_path"] = rscript_executable_path # Already obtained and normalized
+    params["rscript_executable_path"] = rscript_executable_path
 
     print("\n--- Script Locations ---")
     pipeline_base_dir = normalize_path(os.path.dirname(os.path.abspath(__file__)))
@@ -442,7 +436,7 @@ def setup_custom_mode(downloaded_data: Dict[str, str], rscript_executable_path: 
         else: 
             default_scripts_dir_suggestion = None
 
-    scripts_dir_paths = ask_for_paths( # Returns normalized paths
+    scripts_dir_paths = ask_for_paths(
         "Enter the full path to the directory containing R and Python module scripts",
         ensure_dir=True,
         default_path_suggestion=default_scripts_dir_suggestion
@@ -454,10 +448,10 @@ def setup_custom_mode(downloaded_data: Dict[str, str], rscript_executable_path: 
     params["input_python_scripts_dir"] = scripts_dir_paths[0]
 
     print("\n--- Input Data ---")
-    demo_suggestion = downloaded_data.get("demo_data") # Already normalized
+    demo_suggestion = downloaded_data.get("demo_data")
     if demo_suggestion: print(f"Tip: Demo data available at: {demo_suggestion}")
     
-    input_data_paths_val = ask_for_paths( # Returns normalized paths
+    input_data_paths_val = ask_for_paths(
         "Enter the full path to your primary input scRNA-seq data file(s) (e.g., feature-barcode matrix directory, or an .RDS file like 'ori.RDS')",
         allow_multiple=True, is_optional=False, default_path_suggestion=demo_suggestion
     )
@@ -469,13 +463,7 @@ def setup_custom_mode(downloaded_data: Dict[str, str], rscript_executable_path: 
     params["species"] = ask_question("Enter the species ('human' or 'mouse')", "human", choices=["human", "mouse"]).lower()
 
     print("\n--- Output Configuration ---")
-    default_output_dir_suggestion = normalize_path("impact_output") 
-    if params["input_data_paths"]: 
-        first_input_path = params["input_data_paths"][0]
-        first_input_parent_dir = normalize_path(os.path.dirname(first_input_path)) if os.path.isfile(first_input_path) else first_input_path
-        default_output_dir_suggestion = normalize_path(os.path.join(first_input_parent_dir, "impact_output"))
-
-    output_dir_input = ask_question("Enter the full path for your desired output/results folder", default_output_dir_suggestion)
+    output_dir_input = ask_question("Enter the full path for your desired output/results folder", "demo_output")
     params["output_directory"] = normalize_path(os.path.abspath(output_dir_input))
 
 
@@ -496,8 +484,6 @@ def setup_custom_mode(downloaded_data: Dict[str, str], rscript_executable_path: 
         if h5ad_c2s_paths: 
             params["h5ad_path_for_c2s"] = h5ad_c2s_paths[0]
         else:
-            # This case should ideally be handled by ask_for_paths if not optional and no input.
-            # However, to be safe, and align with previous explicit error:
             print("CRITICAL ERROR IN SETUP: Module 02b_c2s selected, but no valid H5AD input path was provided.")
             sys.exit(1)
 
@@ -524,6 +510,7 @@ def setup_custom_mode(downloaded_data: Dict[str, str], rscript_executable_path: 
     params["progeny_csv_path"] = None
     if "04c_decoupler" in params["selected_modules"]:
         print("\n--- DecoupleR Network CSV Paths (Module 04c) ---")
+        print("Note: This module runs significantly faster with R version 4.3.0 or higher.")
         collectri_prompt = f"Enter the full path to the CollecTRI CSV file for {params['species']} (e.g., collectri_{params['species']}.csv)"
         collectri_paths = ask_for_paths(collectri_prompt, allow_multiple=False, is_optional=False, ensure_file=True)
         if collectri_paths: params["collectri_csv_path"] = collectri_paths[0]
@@ -537,6 +524,20 @@ def setup_custom_mode(downloaded_data: Dict[str, str], rscript_executable_path: 
             if progeny_paths: params["progeny_csv_path"] = progeny_paths[0]
             else: print("No PROGENy CSV path provided for human (or skipped).")
         else: params["progeny_csv_path"] = None
+
+    params["spatial_data_rds_path"] = None
+    if "04g_card" in params["selected_modules"]:
+        print("\n--- CARD (Module 04g) Specific Input ---")
+        print("Note: This module requires R version 4.3.0 or higher to run.")
+        spatial_rds_paths = ask_for_paths(
+            "Enter the full path to the spatial data RDS file (for CARD)",
+            allow_multiple=False, is_optional=False, ensure_file=True
+        )
+        if spatial_rds_paths:
+            params["spatial_data_rds_path"] = spatial_rds_paths[0]
+        else:
+            print("CRITICAL ERROR: Module 04g selected, but no spatial data RDS path provided. Exiting.")
+            sys.exit(1)
 
     if "03_cell_type_annotation" in params["selected_modules"]:
         print("\n--- Final Cell Type Source (Module 03) ---")
@@ -567,35 +568,40 @@ def setup_custom_mode(downloaded_data: Dict[str, str], rscript_executable_path: 
         params["msigdb_category"] = "H"
         params["ucell_plot_pathway_name"] = ""
 
-    params["local_singler_ref_path"] = None
-    module_3_is_selected = "03_cell_type_annotation" in params["selected_modules"]
-    if params["species"] in ["human", "mouse"]:
-        prompt_text = f"Enter full path to local SingleR reference RDS for {params['species']}"
-        ref_suggestion = downloaded_data.get("reference_data") # Already normalized
-        if ref_suggestion: print(f"Tip: Downloaded reference data available: {ref_suggestion}")
-        
-        if module_3_is_selected: print(f"\n--- Required Local SingleR Reference for {params['species'].capitalize()} (Module 3) ---")
-        else:
-            print(f"\n--- Optional Local SingleR Reference for {params['species'].capitalize()} ---")
-            prompt_text += " (Optional as Module 3 not selected)."
+    if "03_cell_type_annotation" in params["selected_modules"]:
+        print("\n--- SingleR Reference Configuration (Module 03) ---")
+        print("This module requires a local SingleR reference data file in .RDS format.")
+
+        ref_suggestion = downloaded_data.get("default_reference_data")
+        if ref_suggestion:
+             print(f"Tip: A downloaded reference is available at: {ref_suggestion}")
 
         local_ref_paths = ask_for_paths(
-            prompt_text, 
-            allow_multiple=False, 
-            is_optional=not module_3_is_selected, 
-            optional_default_skip="skip", 
-            ensure_file=True, 
+            f"Enter the full path to your local SingleR reference RDS file for {params['species']}",
+            allow_multiple=False,
+            is_optional=False,
+            ensure_file=True,
             default_path_suggestion=ref_suggestion
         )
-        if local_ref_paths: params["local_singler_ref_path"] = local_ref_paths[0]
-        elif module_3_is_selected:
-            if ref_suggestion and os.path.exists(ref_suggestion): # Check existence of suggestion if used as fallback
-                params["local_singler_ref_path"] = ref_suggestion
-                print(f"Using suggested reference data: {ref_suggestion}")
-            else:
-                print(f"CRITICAL ERROR: Module 3 selected, but no local SingleR reference path obtained or suggested valid reference found.")
-                sys.exit(1)
-        else: print("No local SingleR reference provided.")
+        if local_ref_paths:
+            params["local_singler_ref_path"] = local_ref_paths[0]
+        else:
+            print("CRITICAL ERROR: Module 03 was selected, but no valid reference file path was provided. Exiting.")
+            sys.exit(1)
+
+        default_label_suggestion = "label.main"
+        if params["local_singler_ref_path"] and "bmcite_demo.rds" in params["local_singler_ref_path"]:
+            default_label_suggestion = "celltype.l1"
+
+        label_col = ask_question(
+            "Enter the name of the metadata column in your reference file that contains cell type labels",
+            default_value=default_label_suggestion
+        )
+        params["local_singler_ref_label_col"] = label_col
+        print(f"Using local reference: {params['local_singler_ref_path']} with label column: '{label_col}'")
+    else:
+        params["local_singler_ref_path"] = None
+        params["local_singler_ref_label_col"] = None
 
     params["conditional_paths"] = {"query_rds_path": None, "query_species": None, "palantir_start_cell": None}
     if "04e_pseudotime" in params["selected_modules"]:
@@ -622,13 +628,11 @@ def setup_custom_mode(downloaded_data: Dict[str, str], rscript_executable_path: 
 def save_params(params: Dict[str, Any]) -> bool:
     """Save parameters to JSON file. Expects all paths in params to be pre-normalized."""
     try:
-        # Output directory path in params should already be normalized and absolute
         output_dir = params["output_directory"]
-        if not os.path.exists(output_dir): # os.path.exists works with normalized paths
+        if not os.path.exists(output_dir):
             os.makedirs(output_dir, exist_ok=True)
             print(f"Created output directory: {output_dir}")
 
-        # Construct params_path using os.path.join, then normalize
         params_path = normalize_path(os.path.join(output_dir, "impact_sc_params.json"))
         with open(params_path, 'w', encoding='utf-8') as f:
             json.dump(params, f, indent=4)
@@ -638,7 +642,7 @@ def save_params(params: Dict[str, Any]) -> bool:
         print(f"Next steps:")
         print(f"1. Ensure all R and Python dependencies have been correctly installed.")
         print(f"2. Activate the 'impact_sc' conda environment: conda activate impact_sc")
-        print(f"3. Run the pipeline using: python run_impact_sc_pipeline.py {params_path}") # params_path is normalized
+        print(f"3. Run the pipeline using: python run_impact_sc_pipeline.py {params_path}")
         
         return True
     except IOError as e:
@@ -654,3 +658,4 @@ if __name__ == "__main__":
     else:
         print("Setup did not complete successfully.")
         sys.exit(1)
+
