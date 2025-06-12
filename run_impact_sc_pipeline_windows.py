@@ -99,6 +99,12 @@ def run_script(script_path: str, script_type: str, params: dict, module_name: st
             print(f"Warning: 'final_cell_type_source' not found in params. Module 3 will use its default ('auto').")
 
     elif module_name == "04a_basic_visualization":
+        # --- [MODIFICATION] ---
+        # Pass the user-selected reduction method to the R script environment.
+        reduction_method = params.get("reduction_method", "umap") # Default to umap if not set
+        env["IMPACT_SC_REDUCTION_METHOD"] = reduction_method
+        print(f"Setting IMPACT_SC_REDUCTION_METHOD for Module 4a to: '{reduction_method}'")
+
         featureplot_genes = params.get("featureplot_genes", "")
         env["IMPACT_SC_FEATUREPLOT_GENES"] = featureplot_genes
         print(f"Setting IMPACT_SC_FEATUREPLOT_GENES for Module 4a to: '{featureplot_genes if featureplot_genes else 'empty (skip)'}'")
