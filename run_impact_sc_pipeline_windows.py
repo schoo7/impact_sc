@@ -99,8 +99,6 @@ def run_script(script_path: str, script_type: str, params: dict, module_name: st
             print(f"Warning: 'final_cell_type_source' not found in params. Module 3 will use its default ('auto').")
 
     elif module_name == "04a_basic_visualization":
-        # --- [MODIFICATION] ---
-        # Pass the user-selected reduction method to the R script environment.
         reduction_method = params.get("reduction_method", "umap") # Default to umap if not set
         env["IMPACT_SC_REDUCTION_METHOD"] = reduction_method
         print(f"Setting IMPACT_SC_REDUCTION_METHOD for Module 4a to: '{reduction_method}'")
@@ -123,23 +121,13 @@ def run_script(script_path: str, script_type: str, params: dict, module_name: st
         env["IMPACT_SC_DE_GENE"] = de_gsea_plot_gene
         print(f"Setting IMPACT_SC_DE_GENE for Module 4b to: '{de_gsea_plot_gene if de_gsea_plot_gene else 'empty (skip)'}'")
 
+    # --- [MODIFICATION] ---
+    # The following block that set environment variables for CSV paths has been removed
+    # as the R script now downloads the networks directly.
     elif module_name == "04c_decoupler":
-        collectri_csv = params.get("collectri_csv_path", "")
-        env["IMPACT_SC_COLLECTRI_CSV_PATH"] = collectri_csv if collectri_csv else ""
-        if collectri_csv:
-            print(f"Setting IMPACT_SC_COLLECTRI_CSV_PATH for Module 4c to: {collectri_csv}")
-        else:
-            print("Warning: 'collectri_csv_path' not found or empty in params for Module 4c. R script will skip TF analysis.")
+        print("Info: For Module 4c, the R script will automatically download DecoupleR networks.")
+        print("No CSV path environment variables are needed.")
 
-        progeny_csv = params.get("progeny_csv_path", "")
-        env["IMPACT_SC_PROGENY_CSV_PATH"] = progeny_csv if progeny_csv else ""
-        if progeny_csv:
-            print(f"Setting IMPACT_SC_PROGENY_CSV_PATH for Module 4c to: {progeny_csv}")
-        else:
-            print("Info: 'progeny_csv_path' not found or empty in params for Module 4c. R script will skip PROGENy analysis if applicable.")
-    
-    # --- [FIX START] ---
-    # Added block to handle query projection parameters
     elif module_name == "04f_query_projection":
         query_rds_path = params.get("conditional_paths", {}).get("query_rds_path")
         if not (query_rds_path and os.path.exists(query_rds_path)):
@@ -161,7 +149,6 @@ def run_script(script_path: str, script_type: str, params: dict, module_name: st
         env["IMPACT_SC_QUERY_SPECIES"] = query_species
         print(f"Setting IMPACT_SC_QUERY_RDS_PATH for Module 4f to: {query_rds_path}")
         print(f"Setting IMPACT_SC_QUERY_SPECIES for Module 4f to: {query_species}")
-    # --- [FIX END] ---
 
     elif module_name == "04g_card":
         spatial_rds_path = params.get("spatial_data_rds_path")
