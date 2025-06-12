@@ -8,7 +8,6 @@
 
 ---
 
-
 ### Complete Installation Workflow
 
 <details>
@@ -50,7 +49,7 @@
     ./download_data.sh  # Downloads demo data, models, and reference datasets (~3-5GB)
     ```
 
-3.  **Configure and Run Pipeline** 
+3.  **Configure and Run Pipeline**:
     ```bash
     python interactive_setup.py  # Recommended demo for first-time users
     python run_impact_sc_pipeline.py [path_to_params.json] # Runs the pipeline with the generated parameters file
@@ -64,31 +63,21 @@
 ### **🎯 Demo Mode** (Recommended for beginners)
 
 * **One-click setup**: Pre-configured parameters for PBMC3k dataset
-
 * **Automatic data detection**: Uses downloaded demo data, models, and references
-
 * **Quick testing**: Runs core modules (data processing, C2S, annotation, visualization)
-
 * **No user input required**: All paths and parameters automatically set
 
 **Demo includes**:
-
 * PBMC3k dataset (3,000 cells from 10x Genomics)
-
 * Cell2Sentence model for cell type prediction
-
 * HumanPrimaryCellAtlas reference data
-
 * Optimized gene markers for immune cell visualization
 
 ### **⚙️ Custom Mode** (For experienced users)
 
 * **Flexible configuration**: Use your own datasets and parameters
-
 * **Smart defaults**: Downloaded data used as suggestions when available
-
 * **Full control**: Select specific modules and customize all parameters
-
 * **Data validation**: Checks file existence and provides helpful warnings
 
 ## 💡 Smart Data Integration
@@ -96,27 +85,18 @@
 The interactive setup now automatically:
 
 1. **Detects Downloaded Data**:
-
    * ✅ Demo data at `data/demo/`
-
    * ✅ Cached AI models at `data/models/`
-
    * ✅ Reference data at `data/reference/`
 
 2. **Provides Intelligent Defaults**:
-
    * Uses cached Cell2Sentence model (no re-download)
-
    * Suggests downloaded reference data for SingleR
-
    * Auto-configures paths based on available data
 
 3. **Validates Data Availability**:
-
    * Warns when required files are missing
-
    * Provides fallback to online resources when possible
-
    * Clear error messages for troubleshooting
 
 ## 📥 Data Download System
@@ -124,43 +104,27 @@ The interactive setup now automatically:
 The `download_data.sh` script provides automated downloading of all required data:
 
 ### **1. Demo Data**
-
 * **Source**: 10x Genomics PBMC3k dataset
-
 * **Format**: Filtered gene-barcode matrices (HDF5)
-
-* **Size**: \~1.8MB (compressed), \~19MB (uncompressed)
-
+* **Size**: ~1.8MB (compressed), ~19MB (uncompressed)
 * **Path**: `data/demo/filtered_gene_bc_matrices/`
 
 ### **2. AI Models**
-
 * **Model**: `vandijklab/C2S-Pythia-410m-cell-type-prediction`
-
 * **Framework**: PyTorch (via HuggingFace Transformers)
-
-* **Size**: \~1.5GB
-
+* **Size**: ~1.5GB
 * **Path**: `data/models/`
 
 ### **3. Reference Data**
-
 * **Dataset**: `HumanPrimaryCellAtlasData` from celldex
-
 * **Format**: RDS (R data object)
-
-* **Size**: \~1.2GB
-
+* **Size**: ~1.2GB
 * **Path**: `data/reference/HumanPrimaryCellAtlasData.rds`
 
 ### **Features**:
-
 * ✅ Automatic resume for interrupted downloads
-
 * ✅ Disk space verification (requires 5GB minimum)
-
 * ✅ Cross-platform support (wget/curl fallback)
-
 * ✅ Comprehensive logging (`download_data.log`)
 
 ## 🔍 Verification Script
@@ -168,20 +132,15 @@ The `download_data.sh` script provides automated downloading of all required dat
 The `test_data_download.py` script checks:
 
 1. **Download Tools**: wget, curl, tar
-
 2. **Model Access**: Transformers library and model availability
-
 3. **R Packages**: celldex and other required packages
 
 Run verification:
-
-```
+```bash
 python test_data_download.py
-
 ```
 
 ## 📁 Updated Project Structure
-
 ```
 impact_sc/
 ├── data/                      # Downloaded data (auto-created)
@@ -191,35 +150,22 @@ impact_sc/
 ├── download_data.sh          # Data download script
 ├── test_data_download.py     # Data verification script
 └── ...
-
 ```
 
 ## 📋 Overview
-
 IMPACT-sc consists of three main components:
-
 1. **Dependency Installation** - Set up R and Python environments
-
 2. **Interactive Configuration** - Generate analysis parameters
-
 3. **Pipeline Execution** - Run selected analysis modules
 
 ### Key Features:
-
 * **Data Processing**: QC, filtering, normalization
-
 * **Batch Correction**: Harmony integration
-
 * **Cell Type Annotation**: Seurat, SingleR, Cell2Sentence
-
 * **Visualization**: UMAP, tSNE, feature plots
-
 * **Differential Expression**: DGE and GSEA analysis
-
 * **Pathway Analysis**: DecoupleR, PROGENy, UCell
-
 * **Advanced Analysis**: Pseudotime, query projection
-
 
 **Supported:** Human & Mouse | Windows & macOS (including Apple Silicon) | R + Python integration
 
@@ -325,7 +271,6 @@ sudo pacman -S r
 
 #### **1.2 Install System Dependencies**
 The installation script will handle this automatically, but you can install manually:
-
 ```bash
 # Ubuntu/Debian
 sudo apt install -y build-essential libcurl4-openssl-dev libssl-dev \
@@ -369,70 +314,9 @@ ollama pull gemma2:9b  # Install recommended model
 
 ---
 
-### Step 2: Platform-Specific Package Installation
+### Step 2: Verification
 
-<details>
-<summary><strong>🪟 Windows R Package Installation</strong></summary>
-
-1. **Open Git Bash as Administrator** (Right-click > "Run as administrator")
-2. **Navigate to project directory:**
-   ```bash
-   cd /path/to/impact_sc
-   ```
-3. **Run Windows R installer:**
-   ```bash
-   bash install_r_packages_windows.sh
-   ```
-
-**What this installs:**
-- Bioconductor packages (SingleR, Seurat, etc.)
-- CRAN packages (ggplot2, dplyr, etc.)  
-- GitHub packages (SeuratExtend, CARD, etc.)
-
-**Time:** 30-60 minutes | **Log:** `r_package_install_windows.log`
-</details>
-
-<details>
-<summary><strong>🍎 macOS R Package Installation</strong></summary>
-
-```bash
-# Navigate to project directory
-cd /path/to/impact_sc
-
-# Run macOS R installer
-chmod +x install_r_packages_mac.sh
-./install_r_packages_mac.sh
-```
-
-**What this installs:**
-- Platform-optimized compilation for Apple Silicon
-- Bioconductor packages (SingleR, Seurat, etc.)
-- CRAN packages (ggplot2, dplyr, etc.)  
-- GitHub packages (SeuratExtend, CARD, etc.)
-
-**Time:** 30-60 minutes (longer on Apple Silicon) | **Log:** `r_package_install_mac.log`
-</details>
-
----
-
-### Step 3: Python Environment Setup
-
-**All Platforms:**
-```bash
-# Create and set up Python environment
-bash setup_python_environment.sh
-```
-
-**What this does:**
-- Creates `impact_sc` conda environment with Python 3.9
-- Installs scientific packages (pandas, numpy, scanpy, etc.)
-- Installs specialized packages (cell2sentence, transformers)
-
-**Time:** 15-30 minutes | **Log:** `python_env_setup.log`
-
----
-
-### Step 4: Verification
+After running the main installation script (`install_dependencies.sh` or the platform-specific version), you can verify that the core components are installed correctly.
 
 **Test R Installation:**
 ```bash
@@ -462,47 +346,86 @@ print(f'Scanpy version: {sc.__version__}')
 ## 🔧 Configuration and Usage
 
 ### Step 1: Interactive Setup
+The `interactive_setup.py` script guides you through creating a `impact_sc_params.json` configuration file. This file stores all the parameters for your analysis run.
 
 ```bash
-# Activate environment
+# Activate the conda environment first
 conda activate impact_sc
 
-# Run interactive setup
+# Run the interactive setup script
 python interactive_setup.py
 ```
 
-**Configuration includes:**
-
 <details>
-<summary><strong>Platform-Specific Path Examples</strong></summary>
+<summary><strong>交互式设置示例 (自定义模式)</strong></summary>
 
-**🪟 Windows Paths:**
-```bash
-R executable: "C:\Program Files\R\R-4.3.0\bin\x64\Rscript.exe"
-Scripts: "C:\path\to\impact_sc\scripts_AI"
-Output: "C:\Users\YourName\Documents\impact_output"
-```
+这是一个如何在自定义模式下填写提示的示例。您的路径和选择可能会有所不同。
 
-**🍎 macOS Paths:**
-```bash
-# Apple Silicon
-R executable: "/opt/homebrew/bin/Rscript"
-# Intel Mac  
-R executable: "/usr/local/bin/Rscript"
-# CRAN R (both)
-R executable: "/Library/Frameworks/R.framework/Resources/bin/Rscript"
+```text
+--- Welcome to IMPACT-sc Interactive Setup ---
+...
+Choose setup mode:
+  [demo] - Use demo data and auto-configure
+  [custom] - Configure your own data (default: demo): custom
 
-Scripts: "/Users/yourusername/impact_sc/scripts_AI"
-Output: "/Users/yourusername/impact_sc/output"
+--- Rscript Executable Path ---
+Enter the full path to your Rscript executable (suggested: /opt/homebrew/bin/Rscript): <Enter to accept suggestion>
+Rscript executable path set to: /opt/homebrew/bin/Rscript
+
+--- Script Locations ---
+Enter the full path to the directory containing R and Python module scripts (suggested: /path/to/impact_sc/scripts_AI): <Enter>
+
+--- Input Data ---
+Tip: Demo data available at: /path/to/impact_sc/data/demo/filtered_gene_bc_matrices/hg19
+Enter the full path to your primary input scRNA-seq data file(s) (e.g., feature-barcode matrix directory...): /path/to/my_data/filtered_feature_bc_matrix
+
+Do you want to add another path? (yes/no) (default: no): no
+
+Enter the species ('human' or 'mouse') (default: human): human
+
+--- Output Configuration ---
+Enter the full path for your desired output/results folder (default: demo_output): output/my_pbmc_analysis
+
+--- Module Selection ---
+Available IMPACT-sc Modules:
+  1: 01_data_processing
+  2a: 02a_harmony_c2s_prep
+  ...
+Enter the keys of modules to run, separated by commas (e.g., 1,2a,2b,2c,3,4a): 1,3,4a,4b
+
+--- SingleR Reference Configuration (Module 03) ---
+Tip: A downloaded reference is available at: /path/to/impact_sc/data/reference/bmcite_demo.rds
+Enter the full path to your local SingleR reference RDS file for human: /path/to/my_references/HumanPrimaryCellAtlasData.rds
+Enter the name of the metadata column in your reference file that contains cell type labels (default: label.main): celltype.l1
+
+--- Basic Visualization (Module 04a) Specific Inputs ---
+Enter comma-separated genes for FeaturePlot. Leave empty to skip.: CD3D,CD14,MS4A1,NKG7
+
+Do you want to add a gene group for DotPlot? (yes/no) (default: yes): yes
+Enter the name for this gene group (e.g., B_cell_markers): T_cell_markers
+Enter comma-separated genes for 'T_cell_markers' (e.g., MS4A1,CD79A): CD3D,CD3E,CD8A
+Group 'T_cell_markers' with genes ['CD3D', 'CD3E', 'CD8A'] added.
+Do you want to add another gene group for DotPlot? (yes/no) (default: yes): no
+
+...
+Parameters saved to: output/my_pbmc_analysis/impact_sc_params.json
+
+--- Setup Complete ---
+Next steps:
+1. Ensure all R and Python dependencies have been correctly installed.
+2. Activate the 'impact_sc' conda environment: conda activate impact_sc
+3. Run the pipeline using: python run_impact_sc_pipeline.py output/my_pbmc_analysis/impact_sc_params.json
 ```
 </details>
 
 ### Step 2: Run Pipeline
 
-```bash
-python run_impact_sc_pipeline.py /path/to/impact_sc_params.json
-```
+Once the `impact_sc_params.json` file is generated, you can start the pipeline:
 
+```bash
+python run_impact_sc_pipeline.py /path/to/output/impact_sc_params.json
+```
+This will execute the modules you selected in the order you specified.
 ---
 
 ## 📊 Available Analysis Modules
@@ -716,124 +639,8 @@ If you use IMPACT-sc in your research, please cite:
 
 ## 🤝 Contributing
 
-Contributions welcome! Please ensure compatibility with both Windows and macOS platforms.
+We welcome contributions to the IMPACT-sc project. If you have suggestions for improvements, please open an issue or submit a pull request on our GitHub repository. We appreciate your input and collaboration!
 
 ---
 
-**⚡ Total setup time: ~1-2 hours | Get started by expanding your platform section above!** ### Unified Installation (All Platforms)
-
-1. **Clone the repository**:
-   ```bash
-   git clone [https://github.com/schoo7/impact_sc.git](https://github.com/schoo7/impact_sc.git)
-   cd impact_sc
-   ```
-
-2. **Run the unified installer**:
-   ```bash
-   chmod +x install_dependencies.sh
-   ./install_dependencies.sh
-   ```
-   This will:
-   - Detect your OS and architecture (Windows, macOS, Linux)
-   - Install required system dependencies automatically
-   - Install required R packages with proper Bioconductor version matching (including celldex)
-   - Set up a Python conda environment with all dependencies
-
-3. **Download demo data and models**:
-   ```bash
-   chmod +x download_data.sh
-   ./download_data.sh
-   ```
-   This will download (~3-5GB):
-   - **Demo data**: PBMC3k dataset from 10x Genomics
-   - **AI Models**: Cell2Sentence pre-trained model
-   - **Reference data**: HumanPrimaryCellAtlasData for cell type annotation
-
-4. **Verify installation**:
-   ```bash
-   # Test R installation
-   Rscript -e "library(Seurat); library(SingleR); library(celldex); cat('✅ R packages installed successfully!\n')"
-   
-   # Test Python environment
-   conda activate impact_sc
-   python -c "import scanpy, torch; print(f'✅ Scanpy {scanpy.__version__}, PyTorch {torch.__version__}')"
-   
-   # Check data availability
-   ls -la data/
-   ```
-
----
-
-## 🔧 Configuration
-
-After installation, configure the pipeline:
-```bash
-conda activate impact_sc
-python interactive_setup.py
-```
-
-Then run the pipeline:
-```bash
-python run_impact_sc_pipeline.py /path/to/impact_sc_params.json
-```
-
----
-
-## Key Improvements
-
-- **Cross-platform support**: Works on Windows, macOS (Intel/Apple Silicon), and Linux (Ubuntu/Debian/CentOS/RHEL/Fedora/Arch)
-- **Automatic version management**:
-  - Detects R version and installs compatible Bioconductor
-  - Handles Python package compatibility
-- **Automated system dependencies**: Installs build tools and libraries automatically
-- **Isolated environments**:
-  - R packages installed system-wide
-  - Python packages in dedicated conda environment
-
-For troubleshooting, see the updated [Troubleshooting section](#-troubleshooting) below. 
-
-## ✨ Quick Installation Guide
-
-### 1. First-Time Conda Setup (Only Needed Once)
-```bash
-# Initialize conda for your shell (bash/zsh)
-conda init bash
-
-# Reload your shell configuration
-source ~/.bashrc  # or restart your terminal
-```
-ℹ *Note: This step is only required once per shell type. If you switch shells (e.g., from bash to zsh), you'll need to run `conda init` for that shell.*
-
-### 2. Install Dependencies
-```bash
-# Clone repository (if not already done)
-git clone [https://github.com/schoo7/impact_sc.git](https://github.com/schoo7/impact_sc.git)
-cd impact_sc
-
-# Run the installer
-./install_dependencies.sh
-```
-
-### 3. Activate Environment (Needed Every New Session)
-```bash
-# Activate the conda environment
-conda activate impact_sc
-
-# Verify activation worked
-conda env list  # Should show "impact_sc" with an asterisk
-```
-
-### 4. Download Data
-```bash
-./download_data.sh  # Downloads ~3-5GB of demo data
-```
-
-### 5. Run the Demo
-```bash
-./run_demo.sh  # Or use the interactive setup
-```
-
-ℹ *Troubleshooting Tip*: If `conda activate` fails, try:
-```bash
-export PATH="$HOME/miniconda3/bin:$PATH"  # Adjust path if using Anaconda
-source ~/.bashrc
+**⚡ Total setup time: ~1-2 hours | Get started by expanding your platform section above!**
