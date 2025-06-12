@@ -31,6 +31,10 @@ base_output_path <- Sys.getenv("IMPACT_SC_OUTPUT_DIR", "../output/")
 if (!dir.exists(base_output_path)) dir.create(base_output_path, recursive = TRUE)
 message(paste("Output directory set to:", base_output_path))
 
+# --- [MODIFICATION] ---
+# Read the user's chosen reduction method from the environment variable.
+user_reduction_method <- Sys.getenv("IMPACT_SC_REDUCTION_METHOD", "") # Default to empty string
+
 # Visualization specific parameters from environment
 # These will now strictly depend on user input via environment variables.
 # No R-script level defaults for the gene lists themselves.
@@ -60,46 +64,45 @@ data <- tryCatch(readRDS(obj_module3_path), error=function(e){
 if(is.null(data)) stop("Failed to load data for Module 4.1.")
 message("Loaded final annotated object for Module 4.1.")
 
-
+data[["RNA"]] <- split(data[["RNA"]], f = data$cell_type)  # Split RNA assay by sample
+data<- JoinLayers(data) 
 data$cell_type <- as.factor(data$cell_type)
-
-# Ensure layers are joined if they were split
-is_rna_split_m4a <- (is.list(data@assays$RNA) && inherits(data@assays$RNA[[1]], "Assay")) ||
-                   (length(data@assays$RNA@layers) > 0 && !is.null(names(data@assays$RNA@layers)) && length(data@assays$RNA@layers) >1 ) # check if multiple layers exist
-if (is_rna_split_m4a) {
-    message("Joining RNA assay layers for Module 4.1 operations.")
-    tryCatch({
-      data <- JoinLayers(data, assay="RNA") # assay="RNA" is the correct string parameter
-    }, error = function(e) {
-      message(paste("Could not join layers, attempting to set default layer if possible:", e$message))
-      if(length(data@assays$RNA@layers) == 1 && names(data@assays$RNA@layers)[1] != "data"){ # "data" is the correct string
-         if (!("data" %in% slotNames(data@assays$RNA@layers))){
-            if("counts" %in% slotNames(data@assays$RNA@layers)){ # "counts" is the correct string
-                message("Setting RNA assay's 'data' slot from 'counts'. Normalization might be needed if not already done.")
-                data@assays$RNA@layers$data <- data@assays$RNA@layers$counts
-            } else {
-                 message("RNA assay 'data' slot is missing and could not be derived from 'counts'. Plots requiring 'data' might fail.")
-            }
-         }
-      }
-    })
-}
 DefaultAssay(data) <- "RNA" # "RNA" is the correct string parameter
 
 
-# Determine reduction to use for plotting with priority: umap, harmony, umap_c2s, pca
-reduction_priority <- c("umap", "harmony", "umap_c2s", "pca") # Elements in the vector are correct strings
+# --- [MODIFICATION] ---
+# Determine reduction to use for plotting.
+# Priority: 1. User's choice, 2. Fallback list (umap_c2s, umap, harmony), 3. Default to pca.
 available_reductions <- Reductions(data)
-reduction_to_use <- "pca" # "pca" is the correct string
+reduction_to_use <- NULL
 
-for (r_name in reduction_priority) {
-  if (r_name %in% available_reductions) {
-    reduction_to_use <- r_name
-    message(paste("Using reduction '", reduction_to_use, "' for visualization based on priority.", sep=""))
-    break
-  }
+# 1. Check if user's choice is valid and available.
+if (user_reduction_method != "" && user_reduction_method %in% available_reductions) {
+    reduction_to_use <- user_reduction_method
+    message(paste("Using user-selected reduction '", reduction_to_use, "' for visualization.", sep=""))
+} else {
+    if (user_reduction_method != "") {
+        message(paste("Warning: User-selected reduction '", user_reduction_method, "' is not available in the Seurat object. Available reductions: ", paste(available_reductions, collapse=", "), ". Will proceed with fallback logic.", sep=""))
+    }
+    
+    # 2. If user's choice is not used, go to fallback priority list.
+    fallback_priority <- c("umap_c2s", "umap", "harmony", "pca")
+    for (r_name in fallback_priority) {
+        if (r_name %in% available_reductions) {
+            reduction_to_use <- r_name
+            message(paste("Using fallback reduction '", reduction_to_use, "' for visualization.", sep=""))
+            break
+        }
+    }
 }
+
+# 3. If after all checks, no reduction is selected (highly unlikely if 'pca' is always present), stop.
+if (is.null(reduction_to_use)) {
+    stop("Could not find any suitable reduction (umap_c2s, umap, harmony, or pca) in the Seurat object. Stopping.")
+}
+
 message(paste("Final reduction selected for plotting:", reduction_to_use))
+
 
 # --- DimPlot ---
 # SeuratExtend::DimPlot2
@@ -347,11 +350,11 @@ if (length(VariableFeatures(data)) == 0) {
 
 if (length(VariableFeatures(data)) > 0 && "cell_type" %in% colnames(data@meta.data)) { 
     message("Calculating z-scores for top variable features per cluster using scRNAtoolVis::CalcStats.")
-    if (!("scale.data" %in% slotNames(data@assays$RNA@layers)) || is.null(dim(data@assays$RNA@layers$scale.data)) || ncol(data@assays$RNA@layers$scale.data) == 0) { 
+
         message("Scaling data before CalcStats/Heatmap.")
         all_genes_for_scaling <- rownames(data[["RNA"]])
         data <- ScaleData(data, features = all_genes_for_scaling, assay = "RNA", verbose = FALSE)
-    }
+    
 
     genes_zscore_scrnatoolvis <- tryCatch({
         CalcStats( # Added namespace
@@ -391,4 +394,3 @@ tryCatch({
 })
 
 message("Finished Module 4.1: Basic Visualization")
-

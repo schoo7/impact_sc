@@ -93,6 +93,8 @@ ref_data <- tryCatch(readRDS(obj_prev_module_path), error=function(e){
 })
 if(is.null(ref_data)) stop("Failed to load reference data for Module 4.7.")
 message("Loaded reference Seurat object (as 'ref_data') for Module 4.7.")
+ref_data[["RNA"]] <- split(ref_data[["RNA"]], f = ref_data$cell_type)  
+ref_data<- JoinLayers(ref_data) 
 DefaultAssay(ref_data) <- "RNA"
 
 # Path to query dataset, NOW READ FROM ENVIRONMENT VARIABLE

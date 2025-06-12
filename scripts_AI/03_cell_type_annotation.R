@@ -1,12 +1,11 @@
 # IMPACT-sc Script: 03_cell_type_annotation.R
 # Purpose: Annotate cell types using Seurat clustering, C2S predictions, and SingleR.
-# This script now MANDATES the use of a local SingleR reference file passed via environment variable.
-# It also allows user to choose the final cell_type source via an environment variable.
+# This script now expects a local reference file to be provided via environment variable.
+# The `download_data.sh` script is responsible for downloading any default reference files.
 
 # --- Libraries ---
 library(AnnotationDbi)
 library(CARD)
-# library(celldex) # Celldex is no longer used for downloading reference data
 library(decoupleR)
 library(dplyr)
 library(ensembldb)
@@ -36,8 +35,6 @@ library(UCell)
 library(viridis)
 library(reshape2)
 library(pheatmap)
-# library(ExperimentHub) # Not used for download
-# library(AnnotationHub) # Not used for download
 
 # --- IMPACT-sc Script Parameters (READ FROM ENVIRONMENT VARIABLES) ---
 species <- Sys.getenv("IMPACT_SC_SPECIES", "human")
@@ -48,11 +45,12 @@ if (!dir.exists(base_output_path)) {
 }
 message(paste("Output directory set to:", base_output_path))
 
-# Get local SingleR reference path from environment variable. This is MANDATORY.
+# Get local SingleR reference path from environment variable. This is now the ONLY way to specify the reference.
 local_singler_ref_rds_path <- Sys.getenv("IMPACT_SC_LOCAL_SINGLER_REF_PATH", "") 
+# Get the name of the column containing cell type labels in the reference
+ref_label_col_from_env <- Sys.getenv("IMPACT_SC_SINGLER_REF_LABEL_COL", "label.main")
 # Get user's choice for the final cell_type column source
 final_cell_type_source_choice <- tolower(Sys.getenv("IMPACT_SC_FINAL_CELL_TYPE_SOURCE", "auto"))
-
 
 # Load species-specific annotation database (org.db might still be useful for other gene mapping if needed)
 if (species == "human") {
@@ -87,6 +85,15 @@ if (file.exists(obj_module2_path)) {
 } else {
   stop(paste("Processed Seurat object from Module 2 not found at:", obj_module2_path))
 }
+
+# This step ensures the Seurat object's RNA assay is compatible with various functions.
+message("Processing Seurat object assay for compatibility...")
+obj[["RNA3"]] <- as(object = obj[["RNA"]], Class = "Assay")
+DefaultAssay(obj) <- "RNA3"
+obj[["RNA"]] <- NULL
+obj <- RenameAssays(object = obj, RNA3 = 'RNA')
+message("Assay processing complete.")
+
 
 # Ensure layers are joined if they were split by sample in previous steps
 if (inherits(obj@assays$RNA, "Assay5")) { # Check if it's an Assay5 object
@@ -150,109 +157,70 @@ if ("c2s_direct_predicted_label" %in% colnames(obj@meta.data)) {
     obj$c2s_direct_predicted_label <- NA 
 }
 
-#### Module 3.3: Annotation with SingleR Prediction (using local reference ONLY) ####
-message("Module 3.3: Annotation with SingleR (using local reference ONLY)")
-local_ref_data <- NULL
-local_ref_name <- ""
+#### Module 3.3: Annotation with SingleR Prediction ####
+message("Module 3.3: Annotation with SingleR")
+ref.data <- NULL
+ref_label_col <- NULL
 
-# Check if the environment variable for local ref path is set
-if (!nzchar(local_singler_ref_rds_path)) { # nzchar checks for non-empty string
-    stop("CRITICAL: IMPACT_SC_LOCAL_SINGLER_REF_PATH environment variable not set or empty. A local SingleR reference RDS file is required for Module 3. Please ensure this is set by the main pipeline script.")
+message(paste("Attempting to load local SingleR reference from path:", local_singler_ref_rds_path))
+if (!nzchar(local_singler_ref_rds_path) || !file.exists(local_singler_ref_rds_path)) {
+    stop(paste("Local SingleR reference file not found or path is empty. Path provided via IMPACT_SC_LOCAL_SINGLER_REF_PATH was:", local_singler_ref_rds_path))
 }
 
-message(paste("Attempting to load local SingleR reference from path provided by environment variable:", local_singler_ref_rds_path))
-if (!file.exists(local_singler_ref_rds_path)) {
-    stop(paste("Local SingleR reference RDS file not found at the provided path:", local_singler_ref_rds_path, ". Please check the path set in IMPACT_SC_LOCAL_SINGLER_REF_PATH."))
-}
-
-# Try to load the RDS file
-local_ref_data <- tryCatch({
-    readRDS(local_singler_ref_rds_path)
-}, error = function(e) {
+# Load the reference data (now always from a local path)
+ref.data.seurat <- tryCatch(readRDS(local_singler_ref_rds_path), error = function(e) {
     stop(paste("Error loading local SingleR reference RDS from", local_singler_ref_rds_path, ":", e$message))
-    # The script will stop here due to stop()
-    NULL # Should not be reached
 })
 
-# This check is redundant if stop() is used above, but kept for safety
-if (is.null(local_ref_data)) { 
-    stop("Failed to load local SingleR reference. The script should have stopped in the tryCatch block.")
+# Special processing for the default Azimuth demo file
+if (basename(local_singler_ref_rds_path) == "bmcite_demo.rds") {
+    message("Default reference 'bmcite_demo.rds' detected. Subsetting to 50 cells per cell type for demonstration.")
+    meta <- ref.data.seurat@meta.data
+    barcodes <- meta %>%
+      mutate(cell = rownames(.)) %>%
+      group_by(celltype.l1) %>%
+      slice_sample(n = 50) %>%
+      pull(cell)
+    ref.data.seurat <- subset(ref.data.seurat, cells = barcodes)
+    message("Default reference subsetting complete.")
 }
 
-# Validate the loaded reference
-if (!inherits(local_ref_data, "SummarizedExperiment")) {
-    stop(paste("Local RDS file '", basename(local_singler_ref_rds_path), 
-               "' is not a valid SingleR reference object. Expected a SummarizedExperiment object.", sep=""))
+# Convert to SingleCellExperiment and validate
+ref.data <- as.SingleCellExperiment(ref.data.seurat)
+ref_label_col <- ref_label_col_from_env
+if (!ref_label_col %in% colnames(colData(ref.data))) {
+    stop(paste0("The specified label column '", ref_label_col, "' was not found in the metadata of the local reference file."))
 }
-if (!"label.main" %in% colnames(colData(local_ref_data))) { # Check for the essential label column
-     stop(paste("Local RDS file '", basename(local_singler_ref_rds_path), 
-               "' (SummarizedExperiment) is missing the required 'label.main' column in its colData.", sep=""))
+message("Successfully loaded and validated local SingleR reference.")
+message(paste("Using label column:", ref_label_col))
+print(table(ref.data[[ref_label_col]]))
+
+# Proceed with SingleR annotation
+# Convert query Seurat object to SingleCellExperiment for SingleR
+obj_sce <- as.SingleCellExperiment(obj, assay = "RNA")
+
+# Ensure logcounts are present, normalizing if necessary
+if (!("logcounts" %in% SummarizedExperiment::assayNames(obj_sce))) {
+    message("Logcounts slot not found. Normalizing data to create logcounts for SingleR.")
+    obj_sce <- logNormCounts(obj_sce)
 }
 
-local_ref_name <- basename(local_singler_ref_rds_path) # Get a display name for the reference
-message(paste("Successfully loaded and validated local SingleR reference:", local_ref_name))
-
-# Display distribution of labels in the reference if it has data
-message(paste("Using local reference '", local_ref_name, "' for SingleR.", sep=""))
-if(nrow(colData(local_ref_data)) > 0) {
-    message("Distribution of 'label.main' in the reference:")
-    print(table(local_ref_data$label.main))
-}
-
-# Convert Seurat object to SingleCellExperiment for SingleR
-obj_sce <- tryCatch({
-    as.SingleCellExperiment(obj, assay = "RNA") # Use RNA assay
-}, error = function(e) {
-    message(paste("Error converting Seurat object to SingleCellExperiment:", e$message))
+message("Running SingleR prediction...")
+predictions <- tryCatch({
+    SingleR(test = obj_sce, assay.type.test = 1, # Use the first assay (logcounts)
+            ref = ref.data, labels = ref.data[[ref_label_col]])
+}, error = function(e) { 
+    message(paste("SingleR annotation step failed:", e$message))
     NULL
 })
 
-if (is.null(obj_sce)) {
-    warning("Failed to convert Seurat object to SingleCellExperiment. Skipping SingleR annotation.")
-    obj$singler_cell_type_main <- NA # Ensure column exists even if annotation fails
+if (!is.null(predictions) && "labels" %in% names(predictions)) {
+    message("SingleR predicted cell type distribution:")
+    print(table(predictions$labels))
+    obj$singler_cell_type_main <- predictions$labels
 } else {
-    # SingleR expects log-normalized counts, typically in 'logcounts' slot of SCE
-    if (!("logcounts" %in% SummarizedExperiment::assayNames(obj_sce))) {
-        if ("data" %in% Layers(obj@assays$RNA) ) { # Seurat 'data' slot is usually log-normalized
-             message("Logcounts slot not explicitly found in SCE. Assuming 'RNA' assay's 'data' layer (used by as.SingleCellExperiment) is log-normalized.")
-             # No action needed if 'data' is used by as.SingleCellExperiment to populate logcounts
-        } else if ("counts" %in% Layers(obj@assays$RNA)) {
-            message("Only 'counts' layer found in RNA assay. Normalizing data to create logcounts for SingleR.")
-            DefaultAssay(obj) <- "RNA"
-            obj <- NormalizeData(obj, verbose = FALSE) # Normalize if only counts are present
-            obj_sce <- as.SingleCellExperiment(obj, assay = "RNA") # Re-convert after normalization
-            if (!("logcounts" %in% SummarizedExperiment::assayNames(obj_sce))) {
-                 warning("Failed to create 'logcounts' even after normalization. Skipping SingleR.")
-                 obj$singler_cell_type_main <- NA
-                 obj_sce <- NULL # Mark SCE as unusable for SingleR
-            }
-        } else {
-             warning("Neither 'logcounts' nor 'data' nor 'counts' layer available in RNA assay for SingleR. Skipping SingleR.")
-             obj$singler_cell_type_main <- NA
-             obj_sce <- NULL # Mark SCE as unusable for SingleR
-        }
-    }
-
-    if (!is.null(obj_sce)) { # Proceed only if SCE is valid and has logcounts
-        predictions_singler <- tryCatch({
-          SingleR(test = obj_sce, assay.type.test = "logcounts", ref = local_ref_data, labels = local_ref_data$label.main)
-        }, error = function(e) { 
-            message(paste("SingleR annotation step failed:", e$message))
-            NULL # Return NULL on error
-        })
-
-        if (!is.null(predictions_singler) && "labels" %in% names(predictions_singler)) {
-          message("SingleR predicted cell type distribution:")
-          print(table(predictions_singler$labels))
-          obj$singler_cell_type_main <- predictions_singler$labels
-        } else {
-          if(!("singler_cell_type_main" %in% colnames(obj@meta.data))) {obj$singler_cell_type_main <- NA} # Ensure column exists
-          warning("SingleR annotation was not successful or returned unexpected results.")
-        }
-    } else {
-         # Ensure column exists if SCE preparation failed
-         if(!("singler_cell_type_main" %in% colnames(obj@meta.data))) {obj$singler_cell_type_main <- NA}
-    }
+    warning("SingleR annotation was not successful. 'singler_cell_type_main' will be NA.")
+    obj$singler_cell_type_main <- NA
 }
 
 #### Module 3.4: Final Cell Type Assignment based on User Choice or Priority ####
