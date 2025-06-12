@@ -356,11 +356,7 @@ conda activate impact_sc
 python interactive_setup.py
 ```
 
-<details>
-<summary><strong>交互式设置示例 (自定义模式)</strong></summary>
-
-这是一个如何在自定义模式下填写提示的示例。您的路径和选择可能会有所不同。
-
+### Step 1: Demo Input
 ```text
 --- Welcome to IMPACT-sc Interactive Setup ---
 ...
@@ -416,9 +412,9 @@ Next steps:
 2. Activate the 'impact_sc' conda environment: conda activate impact_sc
 3. Run the pipeline using: python run_impact_sc_pipeline.py output/my_pbmc_analysis/impact_sc_params.json
 ```
-</details>
 
-### Step 2: Run Pipeline
+
+### Step 3: Run Pipeline
 
 Once the `impact_sc_params.json` file is generated, you can start the pipeline:
 
