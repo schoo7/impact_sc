@@ -17,12 +17,17 @@ REFERENCE_DIR="$DATA_DIR/reference"
 PBMC3K_URL="https://cf.10xgenomics.com/samples/cell/pbmc3k/pbmc3k_filtered_gene_bc_matrices.tar.gz"
 PBMC3K_FILE="pbmc3k_filtered_gene_bc_matrices.tar.gz"
 
+# URL for the default Azimuth reference dataset
+AZIMUTH_REF_URL="https://seurat.nygenome.org/azimuth/demo_datasets/bmcite_demo.rds"
+AZIMUTH_REF_FILE="bmcite_demo.rds"
+
+
 # --- Attempt to add user-specified R path to the script's PATH ---
 # This is useful if R is not in the system PATH and was not set by install_dependencies.sh
 # The path F:\R-4.2.3\bin becomes /f/R-4.2.3/bin in Git Bash on Windows.
 # !!!! CRITICAL: CHANGE THIS PATH TO YOUR ACTUAL R INSTALLATION BIN DIRECTORY !!!!
 # Example: If R is installed in C:\Program Files\R\R-4.3.0, then use "/c/Program Files/R/R-4.3.0/bin"
-USER_R_BIN_PATH_DOWNLOAD="/f/R-4.4.2/bin/x64" 
+USER_R_BIN_PATH_DOWNLOAD="/f/R-4.2.3/bin/x64" 
 
 
 # -------------------------
@@ -194,52 +199,24 @@ except Exception as e:
 }
 
 download_reference_data() {
-    log "Downloading reference data (HumanPrimaryCellAtlasData)"
+    log "Downloading reference data (Azimuth PBMC CITE-seq Demo)"
     
-    # Ensure Rscript is available
-    if ! ensure_rscript_path; then
-        fail "Rscript command not found or USER_R_BIN_PATH_DOWNLOAD is incorrect. Please check R installation and PATH settings, or the USER_R_BIN_PATH_DOWNLOAD variable in this script."
-    fi
-
     mkdir -p "$REFERENCE_DIR"
+    local ref_file_path="$REFERENCE_DIR/$AZIMUTH_REF_FILE"
 
-    # Download reference data using R - Simplified script as per user request
-    Rscript -e "
-    # Ensure R_LIBS_USER is respected if set by an outer script, otherwise use default .libPaths()
-    # No explicit BiocManager/celldex installation, assuming they are correctly pre-installed.
-    
-    # Attempt to load celldex directly
-    cat('Attempting to load celldex package...\\n')
-    if (!requireNamespace('celldex', quietly = TRUE)) {
-        cat('❌ celldex package is not found. Please ensure it is installed correctly in your R environment.\\n')
-        cat('You might need to run install_dependencies.sh or install it manually in R using BiocManager::install(\"celldex\").\\n')
-        quit(status = 1)
-    }
-    library(celldex)
-    cat('celldex package loaded successfully.\\n')
-    
-    ref_dir <- Sys.getenv('REFERENCE_DIR_ENV', unset = '$REFERENCE_DIR') # Use env var if set, otherwise default
-    if (ref_dir == '') { # Handle case where REFERENCE_DIR might be empty if not exported properly
-        cat('❌ REFERENCE_DIR was not properly set for the R script.\\n')
-        quit(status = 1)
-    }
-    # Ensure path uses forward slashes for R, especially on Windows
-    ref_dir <- gsub(\"\\\\\\\\\", \"/\", ref_dir)
-
-    cat('Attempting to load HumanPrimaryCellAtlasData...\\n')
-    cat('This may take several minutes...\\n')
-    
-    # Direct execution of the data loading and saving
-    # Segmentation faults here would indicate issues with celldex or its dependencies at runtime
-    ref.data <- HumanPrimaryCellAtlasData(ensembl=TRUE) 
-    
-    ref_file <- file.path(ref_dir, 'HumanPrimaryCellAtlasData.rds')
-    saveRDS(ref.data, ref_file)
-    
-    cat('✅ Reference data (HumanPrimaryCellAtlasData) operation completed.\\n') # Changed from "downloaded and saved" to "operation completed"
-    cat('Reference data saved to:', ref_file, '\\n')
-    quit(status = 0) # Explicitly quit with success status
-    " || fail "R script for reference data operation failed."
+    if [[ ! -f "$ref_file_path" ]]; then
+        log "Downloading $AZIMUTH_REF_FILE..."
+        if command -v wget &> /dev/null; then
+            wget --no-check-certificate "$AZIMUTH_REF_URL" -O "$ref_file_path"
+        elif command -v curl &> /dev/null; then
+            curl -kL "$AZIMUTH_REF_URL" -o "$ref_file_path"
+        else
+            fail "Neither wget nor curl found. Please install one of them to download the reference data."
+        fi
+        log "✅ Reference data downloaded to: $ref_file_path"
+    else
+        log "$AZIMUTH_REF_FILE already exists, skipping download."
+    fi
 }
 
 check_disk_space() {
@@ -303,10 +280,11 @@ verify_downloads() {
         all_ok=false
     fi
     
-    if [[ -f "$REFERENCE_DIR/HumanPrimaryCellAtlasData.rds" && $(stat -c%s "$REFERENCE_DIR/HumanPrimaryCellAtlasData.rds" 2>/dev/null || stat -f%z "$REFERENCE_DIR/HumanPrimaryCellAtlasData.rds" 2>/dev/null || echo 0) -gt 1000000 ]]; then 
-        log "✅ Reference data: HumanPrimaryCellAtlasData.rds available ($REFERENCE_DIR)"
+    local ref_file_path_verify="$REFERENCE_DIR/$AZIMUTH_REF_FILE"
+    if [[ -f "$ref_file_path_verify" && $(stat -c%s "$ref_file_path_verify" 2>/dev/null || stat -f%z "$ref_file_path_verify" 2>/dev/null || echo 0) -gt 1000000 ]]; then 
+        log "✅ Reference data: $AZIMUTH_REF_FILE available ($REFERENCE_DIR)"
     else
-        log "❌ Reference data: HumanPrimaryCellAtlasData.rds missing or too small ($REFERENCE_DIR)"
+        log "❌ Reference data: $AZIMUTH_REF_FILE missing or too small ($REFERENCE_DIR)"
         all_ok=false
     fi
 
@@ -334,9 +312,7 @@ create_directories
 
 download_demo_data
 download_models
-# Export REFERENCE_DIR so it's available as an environment variable to the R script
-export REFERENCE_DIR_ENV="$REFERENCE_DIR"
-download_reference_data # This function now calls ensure_rscript_path
+download_reference_data
 
 verify_downloads
 
@@ -345,6 +321,6 @@ log "Data should be structured as follows:"
 log "├── $DATA_DIR/"
 log "│   ├── demo/             - Demo datasets (e.g., PBMC3k)"
 log "│   ├── models/           - Pre-trained models (e.g., Cell2Sentence)"
-log "│   └── reference/        - Reference datasets (e.g., HumanPrimaryCellAtlasData.rds)"
+log "│   └── reference/        - Reference datasets (e.g., $AZIMUTH_REF_FILE)"
 log ""
 log "You should now be able to run the IMPACT-sc pipeline with the downloaded data."
