@@ -21,7 +21,7 @@ echo "Ensure your system R is correctly configured in your PATH."
 # The path F:\R-4.2.3\bin becomes /f/R-4.2.3/bin in Git Bash on Windows.
 # !!!! CRITICAL: CHANGE THIS PATH TO YOUR ACTUAL R INSTALLATION BIN DIRECTORY !!!!
 # Example: If R is installed in C:\Program Files\R\R-4.3.0, then use "/c/Program Files/R/R-4.3.0/bin"
-USER_R_BIN_PATH="/f/R-4.4.2/bin" #
+USER_R_BIN_PATH="/f/R-4.2.3/bin" #
 if [ -d "$USER_R_BIN_PATH" ]; then
     echo "Attempting to add $USER_R_BIN_PATH to PATH for this script session."
     export PATH="$USER_R_BIN_PATH:$PATH"
@@ -192,13 +192,36 @@ main_try_catch_result <- tryCatch({
     }
     library(BiocManager, lib.loc = user_lib_path)
 
+    # --- Bioconductor Version Mapping ---
+    # Automatically determine the correct Bioconductor version based on the current R version.
     r_version_major_minor <- paste0(R.version\$major, ".", substr(R.version\$minor, 1, 1))
-    BIOC_VERSION_FOR_R <- "3.16" # For R 4.2.x
-    cat(paste0("Targeting Bioconductor version ", BIOC_VERSION_FOR_R, " for R ", R.version.string, "\\n"))
+
+    # Mapping based on Bioconductor release history.
+    bioc_version_map <- list(
+      "4.4" = "3.19",
+      "4.3" = "3.18",
+      "4.2" = "3.16",
+      "4.1" = "3.14",
+      "4.0" = "3.12"
+    )
+
+    BIOC_VERSION_FOR_R <- bioc_version_map[[r_version_major_minor]]
+
+    if (is.null(BIOC_VERSION_FOR_R)) {
+        cat(paste0("WARNING: R version ", r_version_major_minor, " does not have a pre-defined Bioconductor version in this script. Letting BiocManager determine the appropriate version automatically. This is usually safe.\\n"))
+        # If BIOC_VERSION_FOR_R remains NULL, BiocManager::install() will use its default logic to select the correct version.
+    } else {
+        cat(paste0("Based on R version ", r_version_major_minor, ", targeting Bioconductor version ", BIOC_VERSION_FOR_R, ".\\n"))
+    }
+    # --- End Bioconductor Version Mapping ---
+
+    cat(paste0("Attempting to set up Bioconductor for R ", R.version.string, "...\\n"))
+    # Pass the determined version to BiocManager. If NULL, BiocManager uses its default.
     tryCatch(
         BiocManager::install(version = BIOC_VERSION_FOR_R, update = FALSE, ask = FALSE, lib = user_lib_path),
-        error = function(e) message(paste0("Error ensuring BiocManager version ", BIOC_VERSION_FOR_R, ". Error: ", conditionMessage(e)))
+        error = function(e) message(paste0("Error during BiocManager::install(version = ...). Error: ", conditionMessage(e)))
     )
+
     tryCatch(
         BiocManager::valid(lib.loc = user_lib_path),
         warning = function(w) {cat("BiocManager::valid() warnings:\\n"); print(w)},
@@ -258,8 +281,16 @@ main_try_catch_result <- tryCatch({
     cat("Installing Seurat from CRAN and its other dependencies explicitly...\\n")
     install.packages("Seurat", Ncpus = max(1, parallel::detectCores() - 1), type = "binary", lib = user_lib_path)
 
+    cat("Installing specific version of matrixStats (v 1.0.0) using remotes...\\n")
+    tryCatch({
+        remotes::install_version("matrixStats", version = "1.0.0", Ncpus = max(1, parallel::detectCores() - 1), lib = user_lib_path, upgrade = "never", force = TRUE)
+        cat("Successfully attempted to install matrixStats v 1.0.0.\\n")
+    }, error = function(e) {
+        cat("ERROR: Failed to install matrixStats v 1.0.0 using remotes::install_version. Error: ", conditionMessage(e), "\\n")
+    })
+
     seurat_known_deps_cran <- c(
-        'fitdistrplus', 'ggridges', 'ica', 'irlba', 'lmtest', 'matrixStats', 'pbapply', 'plotly', 'RANN',
+        'fitdistrplus', 'ggridges', 'ica', 'irlba', 'lmtest', 'pbapply', 'plotly', 'RANN',
         'RcppAnnoy', 'ROCR', 'Rtsne', 'scattermore',
         'uwot', 'RcppProgress', 'miniUI', 'htmlwidgets', 'lazyeval', 'gplots', 'ape', 'ggplotify', 'assertthat'
     )
