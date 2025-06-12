@@ -1,66 +1,28 @@
 # IMPACT-sc Script: 04c_decoupler_analysis.R
 # Purpose: Add Pathway and TF Activity Scores with DecoupleR.
-# Version: CSV input for networks, ggplot2 visualization, explicit BiocParallel SerialParam, no tryCatch on run_ulm/mlm
+# Version: Network download via decoupleR, ggplot2 visualization, explicit BiocParallel SerialParam
 
 # --- Git Bash Troubleshooting Notes ---
 # If Git Bash hangs or has issues with character encoding/locale, consider the following:
 # 1. Set Git Bash locale environment variables (in ~/.bashrc or ~/.bash_profile):
 #    export LANG=en_US.UTF-8
 #    export LC_ALL=en_US.UTF-8
-#    (or your preferred locale with .UTF-8, e.g., zh_CN.UTF-8)
-#    Source the file (e.g., source ~/.bashrc) or restart Git Bash.
-#
-# 2. Configure Git's output encoding:
-#    git config --global core.quotepath off
-#
-# 3. Set LESSCHARSET for the 'less' pager (in ~/.bashrc):
-#    export LESSCHARSET=utf-8
-#
-# 4. Modify Git Bash terminal settings:
-#    - Right-click Git Bash title bar -> Options...
-#    - Text -> Character set: UTF-8
-#    - Apply/Save.
-#
-# 5. Update Git for Windows to the latest version.
-#
-# 6. Check Windows system-level region/language settings:
-#    - Search for "Region settings" or "Language settings".
-#    - Administrative language settings -> "Language for non-Unicode programs".
-#    - Consider "Beta: Use Unicode UTF-8 for worldwide language support" (use with caution).
-#
-# 7. Use Windows Terminal as a host for Git Bash for potentially better Unicode support.
+# 2. Update Git for Windows to the latest version.
+# 3. Use Windows Terminal as a host for Git Bash for potentially better Unicode support.
 # --- End Git Bash Troubleshooting Notes ---
 
 # --- Libraries ---
 library(AnnotationDbi)
-library(CARD)
-# library(celldex) # Celldex is no longer used for downloading reference data
 library(decoupleR)
 library(dplyr)
-library(ensembldb)
 library(ggplot2)
 library(ggpubr)
-library(homologene)
-library(harmony)
 library(Matrix)
-library(msigdbr)
 library(patchwork)
-library(reticulate)
-library(scDblFinder)
-library(scater)
-library(scRNAtoolVis)
-library(SCpubr)
 library(Seurat)
-library(SeuratDisk)
-library(SeuratExtend)
-library(SingleCellExperiment)
-library(SingleR)
-library(SpatialExperiment)
-library(scran)
 library(stringr)
 library(tibble)
 library(tidyr)
-library(UCell)
 library(viridis)
 library(reshape2) # Added for melt
 library(BiocParallel) # Explicitly load BiocParallel to set params
@@ -78,11 +40,6 @@ if (!dir.exists(base_output_path)) {
 } else {
   message(paste("Output directory set to:", base_output_path))
 }
-
-# Get network file paths from environment variables
-collectri_csv_path <- Sys.getenv("IMPACT_SC_COLLECTRI_CSV_PATH", "")
-progeny_csv_path <- Sys.getenv("IMPACT_SC_PROGENY_CSV_PATH", "")
-
 
 # Load species-specific annotation database
 if (species == "human") {
@@ -122,7 +79,7 @@ if (!file.exists(obj_prev_module_path)) {
   stop(paste("Required input Seurat object not found at either primary or fallback path:", obj_prev_module_path))
 }
 
-data <- tryCatch({ # Keep tryCatch for initial data loading
+data <- tryCatch({
   readRDS(obj_prev_module_path)
 }, error = function(e) {
   message(paste("Error loading input RDS file '", obj_prev_module_path, "': ", e$message, sep=""))
@@ -134,47 +91,36 @@ if(is.null(data)) {
 }
 message(paste("Successfully loaded Seurat object from:", obj_prev_module_path))
 
+data[["RNA"]] <- split(data[["RNA"]], f = data$cell_type)  # Split RNA assay by sample
+data<- JoinLayers(data) 
+data$cell_type <- as.factor(data$cell_type)
 DefaultAssay(data) <- "RNA"
 
-if (!("data" %in% slotNames(data@assays$RNA))) {
-    message("RNA assay 'data' slot is missing. Normalizing data using NormalizeData()...")
+if (!("data" %in% Layers(data, assay="RNA"))) {
+    message("RNA assay 'data' layer is missing. Normalizing data using NormalizeData()...")
     data <- NormalizeData(data, normalization.method = "LogNormalize", scale.factor = 10000, verbose = FALSE)
 } else {
-    message("RNA assay 'data' slot found. Using existing log-normalized data.")
+    message("RNA assay 'data' layer found. Using existing log-normalized data.")
 }
 
 mat_norm_decoupler <- GetAssayData(data, assay = "RNA", layer = "data")
 if(is.null(mat_norm_decoupler) || ncol(mat_norm_decoupler) == 0 || nrow(mat_norm_decoupler) == 0){
     stop("Normalized data matrix for DecoupleR is empty or could not be retrieved. Halting.")
 }
-message(paste("Using species '", species, "' for DecoupleR network selection (if applicable) and analysis.", sep=""))
+message(paste("Using species '", species, "' for DecoupleR network selection and analysis.", sep=""))
 
-# --- TF activity (CollecTRI from CSV) ---
+# --- TF activity (CollecTRI downloaded via decoupleR) ---
 net_collectri <- NULL
-if (collectri_csv_path != "" && file.exists(collectri_csv_path)) {
-  message(paste("Attempting to load CollecTRI network from user-provided CSV:", collectri_csv_path))
-  net_collectri <- tryCatch({ # Keep tryCatch for file reading
-    read.csv(collectri_csv_path, stringsAsFactors = FALSE, header = TRUE)
-  }, error = function(e) {
-    message(paste("Error loading CollecTRI CSV file '", collectri_csv_path, "': ", e$message, sep=""))
-    NULL
-  })
+message(paste("Attempting to download CollecTRI network for species:", species))
+net_collectri <- tryCatch({
+  decoupleR::get_collectri(organism = species, split_complexes = FALSE)
+}, error = function(e) {
+  message(paste("Error downloading CollecTRI network for '", species, "': ", e$message, sep=""))
+  NULL
+})
 
-  if (!is.null(net_collectri)) {
-    required_collectri_cols <- c("source", "target", "mor")
-    if (!all(required_collectri_cols %in% colnames(net_collectri))) {
-      message(paste("Error: CollecTRI CSV ('", collectri_csv_path, "') must contain the columns: 'source', 'target', and 'mor'. Found columns: ", paste(colnames(net_collectri), collapse=", "), sep=""))
-      net_collectri <- NULL
-    } else {
-      message("CollecTRI CSV loaded and columns validated successfully.")
-    }
-  }
-} else {
-  if (collectri_csv_path == "") {
-    message("IMPACT_SC_COLLECTRI_CSV_PATH environment variable not set. Skipping TF activity analysis.")
-  } else {
-    message(paste("CollecTRI CSV file specified by IMPACT_SC_COLLECTRI_CSV_PATH ('", collectri_csv_path, "') does not exist. Skipping TF activity analysis.", sep=""))
-  }
+if (!is.null(net_collectri)) {
+  message("CollecTRI network downloaded successfully.")
 }
 
 tf_acts_ulm <- NULL # Initialize before the if block
@@ -184,11 +130,6 @@ if(!is.null(net_collectri)){
   BiocParallel::register(BiocParallel::SerialParam(), default = TRUE)
 
   current_mat_tf <- if (is(mat_norm_decoupler, "dgCMatrix")) mat_norm_decoupler else as.matrix(mat_norm_decoupler)
-  message(paste("Dimensions of matrix for run_ulm: Rows =", nrow(current_mat_tf), "Cols =", ncol(current_mat_tf)))
-  message(paste("Object size of current_mat_tf:", format(object.size(current_mat_tf), units = "Mb")))
-  message(paste("Number of rows in net_collectri:", nrow(net_collectri)))
-  message("First few rows of net_collectri:")
-  print(head(net_collectri))
   
   genes_in_matrix_collectri <- rownames(current_mat_tf)
   genes_in_network_collectri <- unique(net_collectri$target)
@@ -197,15 +138,12 @@ if(!is.null(net_collectri)){
   if (length(common_genes_collectri) == 0) {
     message("WARNING: No common genes found between your expression data and the CollecTRI network. This will likely lead to issues or empty results.")
   }
-  message(paste("Object size of net_collectri:", format(object.size(net_collectri), units = "Mb")))
-
-
-  # Directly run without tryCatch for run_ulm
+  
   tf_acts_ulm <- decoupleR::run_ulm(current_mat_tf, net = net_collectri,
                      .source = 'source', .target = 'target', .mor = 'mor',
                      minsize = 5)
 
-  message("run_ulm finished.") # Add this message to see if it completes
+  message("run_ulm for TF activities finished.")
 
 
   if(!is.null(tf_acts_ulm) && nrow(tf_acts_ulm) > 0) {
@@ -219,119 +157,80 @@ if(!is.null(net_collectri)){
     message("TF activities (ULM) added as 'tfs_ulm' assay and scaled.")
 
     n_top_tfs_decoupler <- 25
-    avg_tf_activity_raw <- AverageExpression(data, assays = "tfs_ulm", features = rownames(data[["tfs_ulm"]]), group.by = "cell_type", slot = "counts", verbose = FALSE)$tfs_ulm
+    avg_tf_activity_raw <- AverageExpression(data, assays = "tfs_ulm", features = rownames(data[["tfs_ulm"]]), group.by = "cell_type", layer = "counts", verbose = FALSE)$tfs_ulm
 
     if (nrow(avg_tf_activity_raw) > 0) {
         tf_variances_decoupler <- apply(avg_tf_activity_raw, 1, var, na.rm = TRUE)
         tf_variances_decoupler <- tf_variances_decoupler[!is.na(tf_variances_decoupler)]
         if (length(tf_variances_decoupler) > 0) {
             top_variable_tfs_decoupler <- names(sort(tf_variances_decoupler, decreasing = TRUE)[1:min(n_top_tfs_decoupler, length(tf_variances_decoupler))])
-            avg_tf_activity_top_decoupler <- avg_tf_activity_raw[top_variable_tfs_decoupler, , drop=FALSE]
+            
+            # --- FIX: Added check to ensure top_variable_tfs_decoupler is not empty ---
+            if (!is.null(top_variable_tfs_decoupler) && length(top_variable_tfs_decoupler) > 0) {
+                avg_tf_activity_top_decoupler <- avg_tf_activity_raw[top_variable_tfs_decoupler, , drop=FALSE]
 
-            if(nrow(avg_tf_activity_top_decoupler) > 0 && ncol(avg_tf_activity_top_decoupler) > 0) {
-                scaled_avg_tf_activity <- t(scale(t(avg_tf_activity_top_decoupler)))
-                scaled_avg_tf_activity[is.na(scaled_avg_tf_activity) | is.nan(scaled_avg_tf_activity) | is.infinite(scaled_avg_tf_activity)] <- 0
-                melted_tf_data <- reshape2::melt(scaled_avg_tf_activity, varnames = c("Gene", "CellType"), value.name = "Value")
-                melted_tf_data$CellType <- factor(melted_tf_data$CellType, levels = rev(unique(as.character(melted_tf_data$CellType))))
-                melted_tf_data$Gene <- factor(melted_tf_data$Gene, levels = unique(as.character(melted_tf_data$Gene)))
-                max_tile_size <- 1
+                if(nrow(avg_tf_activity_top_decoupler) > 0 && ncol(avg_tf_activity_top_decoupler) > 0) {
+                    scaled_avg_tf_activity <- t(scale(t(avg_tf_activity_top_decoupler)))
+                    scaled_avg_tf_activity[is.na(scaled_avg_tf_activity) | is.nan(scaled_avg_tf_activity) | is.infinite(scaled_avg_tf_activity)] <- 0
+                    melted_tf_data <- reshape2::melt(scaled_avg_tf_activity, varnames = c("Gene", "CellType"), value.name = "Value")
 
-                tf_heatmap_plot <- ggplot(melted_tf_data, aes(x = Gene, y = CellType)) +
-                  geom_tile(aes(fill = Value), color = "grey50", linewidth = 0.5,
-                            width = pmin(abs(melted_tf_data$Value) / 2, max_tile_size),
-                            height = pmin(abs(melted_tf_data$Value) / 2, max_tile_size)) +
-                  scale_fill_gradient2(low = "#1E90FF", mid = "white", high = "#FF69B4", midpoint = 0, limits = c(-2, 2), oob = scales::squish, name = "Activity") +
-                  theme_minimal(base_size = 12) +
-                  theme(axis.text.x = element_text(angle = 45, hjust = 1, vjust = 1, face = "bold", color = "#374151", size=10),
-                        axis.text.y = element_text(face = "bold", color = "#374151", size=10),
-                        panel.grid = element_blank(),
-                        axis.title = element_blank(),
-                        legend.title = element_text(face = "bold", size=11),
-                        legend.text = element_text(color = "#374151", size=10),
-                        plot.background = element_rect(fill = "white", color = NA),
-                        plot.margin = margin(15, 15, 15, 15),
-                        plot.title = element_text(hjust = 0.5, face = "bold", size=14)) +
-                  geom_tile(aes(x = Gene, y = CellType), color = "grey", linewidth = 0.2, fill = NA, width = 1, height = 1) +
-                  coord_fixed() +
-                  ggtitle("Mean TF Activity per Cell Type (Top Variable TFs)")
+                    tf_heatmap_plot <- ggplot(melted_tf_data, aes(x = Gene, y = CellType)) +
+                      geom_tile(aes(fill = Value), color = "grey50") +
+                      scale_fill_gradient2(low = "blue", mid = "white", high = "red", name = "Activity") +
+                      theme_minimal() +
+                      theme(axis.text.x = element_text(angle = 45, hjust = 1)) +
+                      ggtitle("Mean TF Activity per Cell Type (Top Variable TFs)")
 
-                tf_heatmap_path_decoupler_gg <- file.path(base_output_path, "04c_tf_activity_heatmap_decoupler_ggplot.png")
-                ggsave(tf_heatmap_path_decoupler_gg, plot = tf_heatmap_plot, width = 10, height = max(6, 0.4*length(unique(melted_tf_data$CellType)) + 0.3*length(unique(melted_tf_data$Gene))), units = "in", dpi = 300, limitsize = FALSE)
-                message(paste("DecoupleR TF activity ggplot heatmap saved to:", tf_heatmap_path_decoupler_gg))
-            } else { message("Not enough variable TFs or cell types to plot TF activity ggplot heatmap after filtering.")}
+                    tf_heatmap_path_decoupler_gg <- file.path(base_output_path, "04c_tf_activity_heatmap_decoupler_ggplot.png")
+                    ggsave(tf_heatmap_path_decoupler_gg, plot = tf_heatmap_plot, width = 10, height = max(6, 0.4*nlevels(as.factor(data$cell_type))), limitsize = FALSE)
+                    message(paste("DecoupleR TF activity ggplot heatmap saved to:", tf_heatmap_path_decoupler_gg))
+                } else { message("Not enough variable TFs or cell types to plot TF activity ggplot heatmap after filtering.")}
+            } else {
+                message("No top variable TFs could be identified after filtering. Skipping TF activity heatmap.")
+            }
         } else { message("No TFs with variance found. Skipping TF activity heatmap.")}
     } else { message("Average TF activity matrix is empty. Skipping TF activity heatmap.")}
   } else {
-      if (is.null(tf_acts_ulm)) {
-          message("TF activity calculation (run_ulm) resulted in NULL. Skipping TF analysis downstream.")
-      } else if (nrow(tf_acts_ulm) == 0) {
-          message("TF activity calculation (run_ulm) returned 0 rows. Skipping TF analysis downstream.")
-      } else {
-          message("TF activity calculation (run_ulm) did not produce expected results. Skipping TF analysis downstream.")
-      }
+      message("TF activity calculation (run_ulm) did not produce expected results. Skipping TF analysis downstream.")
   }
-} else { message("Skipping TF activity analysis as CollecTRI network was not loaded successfully.")}
+} else { message("Skipping TF activity analysis as CollecTRI network could not be downloaded.")}
 
-# --- Pathway activity (PROGENy from CSV, only for human) ---
+# --- Pathway activity (PROGENy downloaded via decoupleR) ---
 net_progeny <- NULL
-if (species == "human") {
-  if (progeny_csv_path != "" && file.exists(progeny_csv_path)) {
-    message(paste("Attempting to load PROGENy network from user-provided CSV for human:", progeny_csv_path))
-    net_progeny <- tryCatch({ # Keep tryCatch for file reading
-      read.csv(progeny_csv_path, stringsAsFactors = FALSE, header = TRUE)
-    }, error = function(e) {
-      message(paste("Error loading PROGENy CSV file '", progeny_csv_path, "': ", e$message, sep=""))
-      NULL
-    })
+message(paste("Attempting to download PROGENy network for species:", species))
+net_progeny <- tryCatch({
+  # PROGENy is available for human and mouse in decoupleR
+  decoupleR::get_progeny(organism = species, top = 500)
+}, error = function(e) {
+  message(paste("Error downloading PROGENy network for '", species, "': ", e$message, sep=""))
+  NULL
+})
 
-    if (!is.null(net_progeny)) {
-      required_progeny_cols <- c("source", "target", "weight")
-      if (!all(required_progeny_cols %in% colnames(net_progeny))) {
-        message(paste("Error: PROGENy CSV ('", progeny_csv_path, "') must contain the columns: 'source', 'target', and 'weight'. Found columns: ", paste(colnames(net_progeny), collapse=", "), sep=""))
-        net_progeny <- NULL
-      } else {
-        message("PROGENy CSV loaded and columns validated successfully for human.")
-      }
-    }
-  } else {
-    if (progeny_csv_path == "") {
-      message("IMPACT_SC_PROGENY_CSV_PATH environment variable not set for human. Skipping PROGENy pathway analysis.")
-    } else {
-      message(paste("PROGENy CSV file specified by IMPACT_SC_PROGENY_CSV_PATH ('", progeny_csv_path, "') does not exist for human. Skipping PROGENy pathway analysis.", sep=""))
-    }
-  }
-} else {
-  message(paste("PROGENy pathway analysis is designed for human species. Skipping for '", species, "'.", sep=""))
+if (!is.null(net_progeny)) {
+  message("PROGENy network downloaded successfully.")
 }
 
 pathway_acts_mlm <- NULL # Initialize before the if block
-if(!is.null(net_progeny) && species == "human"){
+if(!is.null(net_progeny)){
   message("Running MLM (Multivariate Linear Model) for PROGENy pathway activities.")
   message("Setting BiocParallel to SerialParam to avoid potential parallel backend issues.")
   BiocParallel::register(BiocParallel::SerialParam(), default = TRUE)
 
   current_mat_pathway <- if (is(mat_norm_decoupler, "dgCMatrix")) mat_norm_decoupler else as.matrix(mat_norm_decoupler)
-  message(paste("Dimensions of matrix for run_mlm: Rows =", nrow(current_mat_pathway), "Cols =", ncol(current_mat_pathway)))
-  message(paste("Object size of current_mat_pathway:", format(object.size(current_mat_pathway), units = "Mb")))
-  message(paste("Number of rows in net_progeny:", nrow(net_progeny)))
-  message("First few rows of net_progeny:")
-  print(head(net_progeny))
 
   genes_in_matrix_progeny <- rownames(current_mat_pathway)
-  genes_in_network_progeny <- unique(net_progeny$target) # Assuming 'target' contains gene symbols
+  genes_in_network_progeny <- unique(net_progeny$target)
   common_genes_progeny <- intersect(genes_in_matrix_progeny, genes_in_network_progeny)
   message(paste("Number of common genes between matrix and PROGENy network:", length(common_genes_progeny)))
-  if (length(common_genes_progeny) == 0 && nrow(net_progeny) > 0) { # only warn if network is not empty
-    message("WARNING: No common genes found between your expression data and the PROGENy network for human. This will likely lead to issues or empty results.")
+  if (length(common_genes_progeny) == 0 && nrow(net_progeny) > 0) {
+    message("WARNING: No common genes found between your expression data and the PROGENy network. This will likely lead to issues or empty results.")
   }
-  message(paste("Object size of net_progeny:", format(object.size(net_progeny), units = "Mb")))
 
-  # Directly run without tryCatch for run_mlm
   pathway_acts_mlm <- decoupleR::run_mlm(current_mat_pathway, net = net_progeny,
                      .source = 'source', .target = 'target', .mor = 'weight',
                      minsize = 5)
 
-  message("run_mlm finished.") # Add this message
+  message("run_mlm for pathway activities finished.")
 
   if(!is.null(pathway_acts_mlm) && nrow(pathway_acts_mlm) > 0) {
     pathway_scores_wide <- pathway_acts_mlm %>%
@@ -343,55 +242,34 @@ if(!is.null(net_progeny) && species == "human"){
     data <- ScaleData(data, assay = "pathways_mlm", verbose = FALSE)
     message("PROGENy pathway activities (MLM) added as 'pathways_mlm' assay and scaled.")
 
-    avg_pathway_activity_raw <- AverageExpression(data, assays = "pathways_mlm", features = rownames(data[["pathways_mlm"]]), group.by = "cell_type", slot="counts", verbose=FALSE)$pathways_mlm
+    avg_pathway_activity_raw <- AverageExpression(data, assays = "pathways_mlm", features = rownames(data[["pathways_mlm"]]), group.by = "cell_type", layer="counts", verbose=FALSE)$pathways_mlm
 
     if(nrow(avg_pathway_activity_raw) > 0 && ncol(avg_pathway_activity_raw) > 0) {
         scaled_avg_pathway_activity <- t(scale(t(avg_pathway_activity_raw)))
         scaled_avg_pathway_activity[is.na(scaled_avg_pathway_activity) | is.nan(scaled_avg_pathway_activity) | is.infinite(scaled_avg_pathway_activity)] <- 0
-        melted_pathway_data <- reshape2::melt(scaled_avg_pathway_activity, varnames = c("Gene", "CellType"), value.name = "Value")
-        melted_pathway_data$CellType <- factor(melted_pathway_data$CellType, levels = rev(unique(as.character(melted_pathway_data$CellType))))
-        melted_pathway_data$Gene <- factor(melted_pathway_data$Gene, levels = unique(as.character(melted_pathway_data$Gene)))
-        max_tile_size <- 1
+        melted_pathway_data <- reshape2::melt(scaled_avg_pathway_activity, varnames = c("Pathway", "CellType"), value.name = "Activity")
 
-        pathway_heatmap_plot <- ggplot(melted_pathway_data, aes(x = Gene, y = CellType)) +
-          geom_tile(aes(fill = Value), color = "grey50", linewidth = 0.5,
-                    width = pmin(abs(melted_pathway_data$Value) / 2, max_tile_size),
-                    height = pmin(abs(melted_pathway_data$Value) / 2, max_tile_size)) +
-          scale_fill_gradient2(low = "#1E90FF", mid = "white", high = "#FF69B4", midpoint = 0, limits = c(-2, 2), oob = scales::squish, name = "Activity") +
-          theme_minimal(base_size = 12) +
-          theme(axis.text.x = element_text(angle = 45, hjust = 1, vjust = 1, face = "bold", color = "#374151", size=10),
-                axis.text.y = element_text(face = "bold", color = "#374151", size=10),
-                panel.grid = element_blank(),
-                axis.title = element_blank(),
-                legend.title = element_text(face = "bold", size=11),
-                legend.text = element_text(color = "#374151", size=10),
-                plot.background = element_rect(fill = "white", color = NA),
-                plot.margin = margin(15, 15, 15, 15),
-                plot.title = element_text(hjust = 0.5, face = "bold", size=14)) +
-          geom_tile(aes(x = Gene, y = CellType), color = "grey", linewidth = 0.2, fill = NA, width = 1, height = 1) +
-          coord_fixed() +
+        pathway_heatmap_plot <- ggplot(melted_pathway_data, aes(x = Pathway, y = CellType, fill = Activity)) +
+          geom_tile(color = "grey50") +
+          scale_fill_gradient2(low = "blue", mid = "white", high = "red", name = "Activity") +
+          theme_minimal() +
+          theme(axis.text.x = element_text(angle = 45, hjust = 1)) +
           ggtitle("Mean Pathway Activity per Cell Type (PROGENy)")
 
         pathway_heatmap_path_decoupler_gg <- file.path(base_output_path, "04c_pathway_activity_heatmap_decoupler_ggplot.png")
-        ggsave(pathway_heatmap_path_decoupler_gg, plot = pathway_heatmap_plot, width = 10, height = max(6, 0.4*length(unique(melted_pathway_data$CellType)) + 0.3*length(unique(melted_pathway_data$Gene))), units = "in", dpi = 300, limitsize = FALSE)
+        ggsave(pathway_heatmap_path_decoupler_gg, plot = pathway_heatmap_plot, width = 10, height = max(6, 0.4*nlevels(as.factor(data$cell_type))), limitsize=FALSE)
         message(paste("DecoupleR Pathway (PROGENy) activity ggplot heatmap saved to:", pathway_heatmap_path_decoupler_gg))
     } else { message("Not enough data (pathways or cell types) to plot PROGENy ggplot activity heatmap after processing.")}
   } else {
-      if (is.null(pathway_acts_mlm)) {
-          message("Pathway activity calculation (run_mlm) resulted in NULL. Skipping PROGENy analysis downstream.")
-      } else if (nrow(pathway_acts_mlm) == 0) {
-          message("Pathway activity calculation (run_mlm) returned 0 rows. Skipping PROGENy analysis downstream.")
-      } else {
-          message("Pathway activity calculation (run_mlm) did not produce expected results. Skipping PROGENy analysis downstream.")
-      }
+      message("Pathway activity calculation (run_mlm) did not produce expected results. Skipping PROGENy analysis downstream.")
   }
-} else { message("Skipping PROGENy pathway activity analysis as network was not loaded successfully or species is not human.")}
+} else { message("Skipping PROGENy pathway activity analysis as network could not be downloaded.")}
 
 DefaultAssay(data) <- "RNA"
 message("Default assay reset to 'RNA'.")
 
 intermediate_rds_path_04c <- file.path(base_output_path, "04c_data_after_decoupler.RDS")
-tryCatch({ # Keep tryCatch for saving data
+tryCatch({
   saveRDS(data, intermediate_rds_path_04c)
   message(paste("Data object after DecoupleR analysis successfully saved to:", intermediate_rds_path_04c))
 }, error = function(e) {
