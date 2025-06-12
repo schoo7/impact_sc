@@ -131,9 +131,9 @@ The `download_data.sh` script provides automated downloading of all required dat
 
 The `test_data_download.py` script checks:
 
-1. **Download Tools**: wget, curl, tar
+1. **Download Tools**: Git
 2. **Model Access**: Transformers library and model availability
-3. **R Packages**: celldex and other required packages
+3. **R Packages**: See the Test R Installation section
 
 Run verification:
 ```bash
