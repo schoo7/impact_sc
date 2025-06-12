@@ -307,6 +307,7 @@ ollama pull gemma2:9b  # Install recommended model
 After running the main installation script (`install_dependencies.sh` or the platform-specific version), you can verify that the core components are installed correctly.
 
 **Test R Installation:**
+export PATH="/Your Rscript path:$PATH"
 ```bash
 Rscript -e "
 library(Seurat)
