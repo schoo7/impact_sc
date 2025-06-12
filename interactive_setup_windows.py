@@ -357,13 +357,16 @@ def setup_demo_mode(downloaded_data: Dict[str, str], rscript_executable_path: st
         print("Please run './download_data.sh' to download the required data.")
         return False
 
+    params["final_cell_type_source"] = "auto"
+    # --- [MODIFICATION] ---
+    # Set a default reduction method for the demo mode.
+    params["reduction_method"] = "umap"
     params["featureplot_genes"] = "CD3D,CD14,MS4A1,FCGR3A,LYZ,PPBP"
     params["dotplot_gene_groups"] = [
         {"name": "T_cell_markers", "genes": ["CD3D", "CD3E", "CD8A", "CD4"]},
         {"name": "B_cell_markers", "genes": ["MS4A1", "CD79A", "CD79B"]},
         {"name": "Myeloid_markers", "genes": ["CD14", "LYZ", "FCGR3A", "CST3"]}
     ]
-    params["final_cell_type_source"] = "auto"
     params["de_gsea_plot_gene"] = "CD3D"
     params["collectri_csv_path"] = None 
     params["progeny_csv_path"] = None 
@@ -549,9 +552,17 @@ def setup_custom_mode(downloaded_data: Dict[str, str], rscript_executable_path: 
 
     if "04a_basic_visualization" in params["selected_modules"]:
         print("\n--- Basic Visualization (Module 04a) Specific Inputs ---")
+        # --- [MODIFICATION] ---
+        # Updated question to allow user to select from the expanded list of reduction methods.
+        params["reduction_method"] = ask_question(
+            "Enter the preferred reduction method for plotting",
+            default_value="umap",
+            choices=["umap_c2s", "umap", "harmony", "pca"]
+        )
         params["featureplot_genes"] = ask_question("Enter comma-separated genes for FeaturePlot. Leave empty to skip.", "")
         params["dotplot_gene_groups"] = ask_for_dotplot_genes()
     else:
+        params["reduction_method"] = "umap" # Also add a default here
         params["featureplot_genes"] = ""
         params["dotplot_gene_groups"] = []
 
@@ -658,4 +669,3 @@ if __name__ == "__main__":
     else:
         print("Setup did not complete successfully.")
         sys.exit(1)
-
