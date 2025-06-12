@@ -18,7 +18,7 @@
     ```bash
     git clone [https://github.com/schoo7/impact_sc.git](https://github.com/schoo7/impact_sc.git)
     cd impact_sc
-    ./install_dependencies_windows.sh  # Installs R, Python, and all required packages for Windows
+    ./install_dependencies_windows.sh  # Change the R bin path to your address
     ```
 
 2.  **Activate Environment and Download Data**:
@@ -29,7 +29,7 @@
 
 3.  **Configure and Run Pipeline**:
     ```bash
-    python interactive_setup_windows.py  # Interactively sets up the configuration for Windows
+    python interactive_setup_windows.py  # Select demo for testing is recommended 
     python run_impact_sc_pipeline_windows.py [path_to_params.json] # Runs the pipeline with the generated parameters file for Windows
     ```
 </details>
