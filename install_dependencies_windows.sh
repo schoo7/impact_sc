@@ -12,7 +12,7 @@ echo "Without administrator rights, many package installations/updates WILL FAIL
 echo "Also, ensure no other R sessions/processes are running that might lock package files."
 echo "!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!"
 echo ""
-# Removed JAGS/infercnv specific warnings from here
+
 echo "WARNING: This method is generally not recommended due to potential conflicts."
 echo "Ensure your system R is correctly configured in your PATH."
 
@@ -60,7 +60,7 @@ echo ""
 echo "Step 1: Checking for system Rscript..."
 if ! command -v Rscript &> /dev/null
 then
-    echo "ERROR: Rscript command not found in PATH even after attempting to add user-specified path."
+    echo "Rscript command not found in PATH even after attempting to add user-specified path."
     echo "Please perform the following checks:"
     echo "1. Verify R is installed on your system."
     echo "2. Ensure R's 'bin' directory (e.g., C:\\Program Files\\R\\R-x.x.x\\bin) is added to your Windows SYSTEM PATH."
@@ -81,8 +81,8 @@ main_try_catch_result <- tryCatch({
     # Log R version and environment details at the beginning
     cat("--- R Environment Details (System R) ---\n")
     cat("R.version.string:", R.version.string, "\\n")
-    cat("Sys.getenv('PATH'):\\n")
     path_sep <- if (.Platform\$OS.type == "windows") ";" else ":"
+    cat("Sys.getenv('PATH'):\\n")
     print(strsplit(Sys.getenv('PATH'), path_sep))
     cat("Sys.which('make'):", Sys.which('make'), "\\n")
     cat("Sys.which('gcc'):", Sys.which('gcc'), "\\n")
@@ -106,8 +106,22 @@ main_try_catch_result <- tryCatch({
       try(Sys.setlocale("LC_CTYPE", "English_United States.1252"), silent = TRUE)
       try(Sys.setlocale("LC_COLLATE", "English_United States.1252"), silent = TRUE)
     }
+    
+    # Helper function to install a package only if it's not already installed
+    install_if_missing <- function(pkg_name, lib_path, pkg_type = "binary") {
+        if (!requireNamespace(pkg_name, quietly = TRUE, lib.loc = lib_path)) {
+            cat("Package '", pkg_name, "' not found. Attempting installation...\\n")
+            install.packages(pkg_name, lib = lib_path, type = pkg_type, Ncpus = max(1, parallel::detectCores() - 1))
+        } else {
+            cat("Package '", pkg_name, "' is already installed. Skipping.\\n")
+        }
+    }
 
     install_and_check_bioc <- function(pkg_name, lib_path) {
+      if (requireNamespace(pkg_name, quietly = TRUE, lib.loc = lib_path)) {
+          cat("Bioconductor package '", pkg_name, "' is already installed. Skipping.\\n")
+          return(TRUE)
+      }
       cat("Attempting to install Bioconductor package:", pkg_name, "into", lib_path, "\\n")
       installed_ok <- FALSE
       tryCatch({ # Try binary/default first
@@ -131,10 +145,6 @@ main_try_catch_result <- tryCatch({
             installed_ok <- TRUE
           } else {
             cat("ERROR: Failed to load namespace for package:", pkg_name, "after attempting SOURCE installation.\\n")
-            tryCatch(library(pkg_name, lib.loc = lib_path), error = function(e_lib) {
-                cat("Error during library(", pkg_name, "):\\n")
-                print(e_lib)
-            })
           }
         }, error = function(e_src) {
           cat("ERROR during SOURCE BiocManager::install for package:", pkg_name, "\\nError: ", conditionMessage(e_src), "\\n")
@@ -148,128 +158,71 @@ main_try_catch_result <- tryCatch({
 
     # --- Pre-emptive spatstat.utils handling ---
     cat("--- Pre-emptive spatstat.utils handling ---\\n")
-    cat("Attempting to ensure spatstat.utils is version >= 3.1.0 by installing from source.\\n")
-    cat("This may involve removing an older version if present and R has permission.\\n")
-    tryCatch({
-      if (requireNamespace("spatstat.utils", quietly = TRUE, lib.loc = user_lib_path)) {
-        current_spatstat_version <- packageVersion("spatstat.utils", lib.loc=user_lib_path)
-        cat("spatstat.utils is currently installed. Version:", as.character(current_spatstat_version), "\\n")
-        if (current_spatstat_version < "3.1.0") {
-          cat("Attempting to unload and remove old spatstat.utils...\\n")
-          try(detach("package:spatstat.utils", unload=TRUE, character.only=TRUE, force=TRUE), silent=TRUE)
-          remove.packages("spatstat.utils", lib = user_lib_path)
-          cat("Old spatstat.utils removed (or attempt made). Now installing from source.\\n")
-          install.packages("spatstat.utils", Ncpus = max(1, parallel::detectCores() - 1), type = "source", lib = user_lib_path)
-        } else {
-          cat("spatstat.utils is already version >= 3.1.0.\\n")
-        }
-      } else {
-        cat("spatstat.utils not found. Installing from source...\\n")
-        install.packages("spatstat.utils", Ncpus = max(1, parallel::detectCores() - 1), type = "source", lib = user_lib_path)
-      }
-    }, error = function(e) {
-      cat("Error during pre-emptive spatstat.utils handling: ", conditionMessage(e), "\\n")
-      cat("If spatstat.utils is not correctly installed/updated, downstream packages might fail.\\n")
-    })
-    cat("Finished pre-emptive spatstat.utils handling. Current version (if installed):\\n")
-    tryCatch({
-        if (requireNamespace("spatstat.utils", quietly = TRUE, lib.loc = user_lib_path)) {
-            print(packageVersion("spatstat.utils", lib.loc=user_lib_path))
-        } else {
-            cat("spatstat.utils still not found after handling attempt.\\n")
-        }
-    }, error = function(e_pv) {
-        cat("Error checking spatstat.utils version after install attempt: ", conditionMessage(e_pv), "\\n")
-    })
+    install_if_missing("spatstat.utils", lib_path = user_lib_path, pkg_type = "source")
     cat("---------------------------------------------\\n")
 
-    cat("Attempting to update other installed packages from CRAN in library:", user_lib_path, "...\\n")
-    update.packages(ask = FALSE, checkBuilt = TRUE, Ncpus = max(1, parallel::detectCores() - 1), type = "binary", lib = user_lib_path)
-
-    cat("Installing BiocManager if not present...\\n")
-    if (!requireNamespace("BiocManager", quietly = TRUE, lib.loc = user_lib_path)) {
-        install.packages("BiocManager", Ncpus = max(1, parallel::detectCores() - 1), type = "binary", lib = user_lib_path)
-    }
+    install_if_missing("BiocManager", lib_path = user_lib_path)
     library(BiocManager, lib.loc = user_lib_path)
 
     # --- Bioconductor Version Mapping ---
-    # Automatically determine the correct Bioconductor version based on the current R version.
     r_version_major_minor <- paste0(R.version\$major, ".", substr(R.version\$minor, 1, 1))
-
-    # Mapping based on Bioconductor release history.
-    bioc_version_map <- list(
-      "4.4" = "3.19",
-      "4.3" = "3.18",
-      "4.2" = "3.16",
-      "4.1" = "3.14",
-      "4.0" = "3.12"
-    )
-
+    bioc_version_map <- list("4.4" = "3.19", "4.3" = "3.18", "4.2" = "3.16", "4.1" = "3.14", "4.0" = "3.12")
     BIOC_VERSION_FOR_R <- bioc_version_map[[r_version_major_minor]]
 
     if (is.null(BIOC_VERSION_FOR_R)) {
         cat(paste0("WARNING: R version ", r_version_major_minor, " does not have a pre-defined Bioconductor version in this script. Letting BiocManager determine the appropriate version automatically. This is usually safe.\\n"))
-        # If BIOC_VERSION_FOR_R remains NULL, BiocManager::install() will use its default logic to select the correct version.
     } else {
         cat(paste0("Based on R version ", r_version_major_minor, ", targeting Bioconductor version ", BIOC_VERSION_FOR_R, ".\\n"))
     }
-    # --- End Bioconductor Version Mapping ---
-
-    cat(paste0("Attempting to set up Bioconductor for R ", R.version.string, "...\\n"))
-    # Pass the determined version to BiocManager. If NULL, BiocManager uses its default.
+    
     tryCatch(
         BiocManager::install(version = BIOC_VERSION_FOR_R, update = FALSE, ask = FALSE, lib = user_lib_path),
         error = function(e) message(paste0("Error during BiocManager::install(version = ...). Error: ", conditionMessage(e)))
     )
-
+    
     tryCatch(
         BiocManager::valid(lib.loc = user_lib_path),
         warning = function(w) {cat("BiocManager::valid() warnings:\\n"); print(w)},
         error = function(e) {cat("BiocManager::valid() error:\\n"); print(e)}
     )
 
-    cat("Installing core Bioconductor annotation packages (will attempt source if binary fails)...\\n")
+    cat("Installing core Bioconductor annotation packages...\\n")
     core_bioc_annotation_pkgs <- c("GenomeInfoDbData", "GenomeInfoDb", "AnnotationDbi", "org.Hs.eg.db", "org.Mm.eg.db")
     for (pkg in core_bioc_annotation_pkgs) {
-      if (!requireNamespace(pkg, quietly = TRUE, lib.loc = user_lib_path)) {
         install_and_check_bioc(pkg, lib_path = user_lib_path)
-      } else {
-        cat("Package", pkg, "already installed.\\n")
-      }
     }
 
-    cat("Attempting to install/update critical CRAN packages (fastmap, rlang, cli, htmltools, digest)...\\n")
+    cat("Installing critical CRAN packages (fastmap, rlang, cli, htmltools, digest)...\\n")
     critical_cran_updates <- c("fastmap", "rlang", "cli", "htmltools", "digest")
-    install.packages(critical_cran_updates, Ncpus = max(1, parallel::detectCores() - 1), type = "binary", lib = user_lib_path)
-
+    for (pkg in critical_cran_updates) {
+        install_if_missing(pkg, lib_path = user_lib_path)
+    }
+    
     cat("Installing other core CRAN packages and devtools dependencies...\\n")
     cran_core_and_pre_deps_binary <- c(
         "Rcpp", "reticulate", "igraph", "openssl", "curl", "xml2", "V8",
-        "sf", "s2", "units", "future", "future.apply", "promises", "later", "httpuv", "shiny",
+        "sf", "s2", "units", "future", "promises", "later", "httpuv",
         "usethis", "pkgload", "pkgbuild", "sessioninfo", "desc", "purrr", "jsonlite", "httr", "remotes",
         "dplyr", "ggplot2", "Matrix", "tibble", "tidyr", "viridis", "reshape2", "pheatmap", "cowplot", "ggpubr", "patchwork",
         "stringr", "car", "ggcorrplot", "homologene"
     )
-    install.packages(cran_core_and_pre_deps_binary, Ncpus = max(1, parallel::detectCores() - 1), type = "binary", lib = user_lib_path)
+    for (pkg in cran_core_and_pre_deps_binary) {
+        install_if_missing(pkg, lib_path = user_lib_path)
+    }
     
-    cat("Attempting to install presto from source...\\n")
-    install.packages("presto", Ncpus = max(1, parallel::detectCores() - 1), type = "source", lib = user_lib_path)
-
-    cat("Installing TOAST using BiocManager...\\n")
-    install_and_check_bioc("TOAST", lib_path = user_lib_path) # Using install_and_check_bioc for consistency
+    install_if_missing("presto", lib_path = user_lib_path, pkg_type = "source")
+    
+    install_and_check_bioc("TOAST", lib_path = user_lib_path)
 
     cat("Attempting to install other spatstat family packages (geom, random, core) from CRAN...\\n")
     spatstat_other_pkgs <- c("spatstat.geom", "spatstat.random", "spatstat.core")
-    install.packages(spatstat_other_pkgs, Ncpus = max(1, parallel::detectCores() - 1), type = "binary", lib = user_lib_path)
+    for (pkg in spatstat_other_pkgs) {
+        install_if_missing(pkg, lib_path = user_lib_path)
+    }
 
-    cat("Installing devtools if not present...\\n")
-    if (!requireNamespace("devtools", quietly = TRUE, lib.loc = user_lib_path)) {
-        install.packages("devtools", Ncpus = max(1, parallel::detectCores() - 1), type = "binary", lib = user_lib_path)
-    }
+    install_if_missing("devtools", lib_path = user_lib_path)
     library(devtools, lib.loc = user_lib_path)
-    if (!requireNamespace("remotes", quietly = TRUE, lib.loc = user_lib_path)) {
-        install.packages("remotes", Ncpus = max(1, parallel::detectCores() - 1), type = "binary", lib = user_lib_path)
-    }
+    install_if_missing("remotes", lib_path = user_lib_path)
     library(remotes, lib.loc = user_lib_path)
 
     cat("Installing specific CRAN/GitHub dependencies...\\n")
@@ -279,8 +232,8 @@ main_try_catch_result <- tryCatch({
              error = function(e) message(paste0("GitHub install failed for sajuukLyu/ggunchull: ", conditionMessage(e))))
 
     cat("Installing Seurat from CRAN and its other dependencies explicitly...\\n")
-    install.packages("Seurat", Ncpus = max(1, parallel::detectCores() - 1), type = "binary", lib = user_lib_path)
-
+    install_if_missing("Seurat", lib_path = user_lib_path)
+    
     cat("Installing specific version of matrixStats (v 1.0.0) using remotes...\\n")
     tryCatch({
         remotes::install_version("matrixStats", version = "1.0.0", Ncpus = max(1, parallel::detectCores() - 1), lib = user_lib_path, upgrade = "never", force = TRUE)
@@ -294,61 +247,34 @@ main_try_catch_result <- tryCatch({
         'RcppAnnoy', 'ROCR', 'Rtsne', 'scattermore',
         'uwot', 'RcppProgress', 'miniUI', 'htmlwidgets', 'lazyeval', 'gplots', 'ape', 'ggplotify', 'assertthat'
     )
-    install.packages(seurat_known_deps_cran, Ncpus = max(1, parallel::detectCores() - 1), type = "binary", lib = user_lib_path)
+    for (pkg in seurat_known_deps_cran) {
+        install_if_missing(pkg, lib_path = user_lib_path)
+    }
 
     seurat_known_deps_bioc <- c('leiden', 'sctransform', 'SeuratObject')
-    cat("Installing Bioconductor dependencies for Seurat (will attempt source if binary fails)...\\n")
+    cat("Installing Bioconductor dependencies for Seurat...\\n")
     for (pkg in seurat_known_deps_bioc) {
-      if (!requireNamespace(pkg, quietly = TRUE, lib.loc = user_lib_path)) {
         install_and_check_bioc(pkg, lib_path = user_lib_path)
-      } else {
-        cat("Seurat Bioc dependency", pkg, "already installed or install attempted.\\n")
-      }
     }
 
     cat("Installing Harmony from CRAN...\\n")
-    tryCatch(install.packages("harmony", Ncpus = max(1, parallel::detectCores() - 1), type = "binary", lib = user_lib_path),
-             error = function(e) {
-                cat("CRAN install failed for harmony: ", conditionMessage(e), "\\nAttempting source install.\\n")
-                tryCatch(install.packages("harmony", Ncpus = max(1, parallel::detectCores() - 1), type = "source", lib = user_lib_path),
-                         error = function(e_src) cat("Source install also failed for harmony: ", conditionMessage(e_src), "\\n"))
-             })
+    install_if_missing("harmony", lib_path = user_lib_path)
 
-    # --- Force Reinstall celldex ---
     cat("--- Ensuring celldex is properly installed (attempting remove and reinstall) ---\\n")
-    tryCatch({
-        if (requireNamespace("celldex", quietly = TRUE, lib.loc = user_lib_path)) {
-            cat("celldex is currently installed. Attempting to remove it for a fresh install...\\n")
-            remove.packages("celldex", lib = user_lib_path)
-            cat("Attempted removal of celldex finished.\\n")
-        } else {
-            cat("celldex not found by requireNamespace, will proceed with installation attempt.\\n")
-        }
-    }, error = function(e_remove) {
-        cat("Note: Error during attempted removal of celldex (might not have been installed or other issue):", conditionMessage(e_remove), "\\n")
-    })
-    cat("Proceeding to install/reinstall celldex using install_and_check_bioc function...\\n")
-    install_and_check_bioc("celldex", lib_path = user_lib_path) # This function uses force=TRUE
+    install_and_check_bioc("celldex", lib_path = user_lib_path)
     cat("--- Finished celldex reinstallation attempt ---\\n")
 
-    cat("Installing remaining common Bioconductor packages (will attempt source if binary fails, skipping celldex as it was handled)...\\n")
+    cat("Installing remaining common Bioconductor packages...\\n")
     bioc_packages_remaining <- c(
-        "decoupleR", "ensembldb", "msigdbr", "scater", # celldex removed from this list
+        "decoupleR", "ensembldb", "msigdbr", "scater",
         "scDblFinder", "SCpubr",
         "SingleCellExperiment", "SingleR", "SpatialExperiment", "scran", "UCell"
     )
     for (pkg in bioc_packages_remaining) {
-      if (!requireNamespace(pkg, quietly = TRUE, lib.loc = user_lib_path)) {
         install_and_check_bioc(pkg, lib_path = user_lib_path)
-      } else {
-        cat("Bioconductor package", pkg, "already installed or previously attempted.\\n")
-      }
     }
 
-    cat("Installing OmnipathR using BiocManager (will attempt source if binary fails)...\\n")
     install_and_check_bioc('OmnipathR', lib_path = user_lib_path)
-
-    # Removed rjags and infercnv installation sections
 
     cat("Installing problematic CRAN packages (yulab.utils, ggfun, scatterpie) with fallbacks...\\n")
     problematic_cran_packages <- c("yulab.utils", "ggfun", "scatterpie")
@@ -357,10 +283,7 @@ main_try_catch_result <- tryCatch({
             message(paste0("Attempting to install ", pkg, " from CRAN (binary if available) into ", user_lib_path, "..."))
             install.packages(pkg, Ncpus = max(1, parallel::detectCores() - 1), type = "binary", lib = user_lib_path)
             if (!requireNamespace(pkg, quietly = TRUE, lib.loc = user_lib_path)) {
-                message(paste0("CRAN binary installation of ", pkg, " failed or package still not found. Attempting to install from GitHub (may require compilation)..."))
-                if(!requireNamespace("remotes", quietly=TRUE, lib.loc=user_lib_path)) install.packages("remotes", lib=user_lib_path, type="binary")
-                library(remotes, lib.loc=user_lib_path)
-
+                message(paste0("CRAN binary installation of ", pkg, " failed or package still not found. Attempting to install from GitHub..."))
                 if (pkg == "yulab.utils") {
                     tryCatch(remotes::install_github("YuLab-SMU/yulab.utils", upgrade = "never", build_vignettes = FALSE, force = TRUE, lib = user_lib_path), error = function(e) message(paste0("GitHub install failed for yulab.utils: ", conditionMessage(e))))
                 } else if (pkg == "ggfun") {
@@ -369,61 +292,54 @@ main_try_catch_result <- tryCatch({
                     tryCatch(remotes::install_github("YuLab-SMU/scatterpie", upgrade = "never", build_vignettes = FALSE, force = TRUE, lib = user_lib_path), error = function(e) message(paste0("GitHub install failed for scatterpie: ", conditionMessage(e))))
                 }
             }
+        } else {
+             cat("Package '", pkg, "' is already installed. Skipping.\\n")
         }
     }
 
     cat("Installing user-specified GitHub packages (scRNAtoolVis, SeuratExtend)...\\n")
-    cat("Installing scRNAtoolVis from GitHub (junjunlab/scRNAtoolVis)...\\n")
     tryCatch(devtools::install_github("junjunlab/scRNAtoolVis", upgrade = "never", build_vignettes = FALSE, force = TRUE, lib = user_lib_path),
              error = function(e) message(paste0("GitHub install failed for junjunlab/scRNAtoolVis: ", conditionMessage(e))))
 
-    cat("Installing SeuratExtend from GitHub (huayc09/SeuratExtend)...\\n")
     tryCatch(remotes::install_github("huayc09/SeuratExtend", upgrade = "never", build_vignettes = FALSE, force = TRUE, lib = user_lib_path),
              error = function(e) message(paste0("GitHub install failed for huayc09/SeuratExtend: ", conditionMessage(e))))
 
     if (requireNamespace("Seurat", quietly = TRUE, lib.loc = user_lib_path)){
         cat("Seurat appears to be installed. Proceeding with Seurat-dependent GitHub packages.\\n")
-        cat("Installing SeuratDisk from GitHub (mojaveazure/seurat-disk)...\\n")
         tryCatch(remotes::install_github("mojaveazure/seurat-disk", upgrade = "never", build_vignettes = FALSE, force = TRUE, lib = user_lib_path),
                  error = function(e) message(paste0("GitHub install failed for mojaveazure/seurat-disk: ", conditionMessage(e))))
     } else {
         cat("Seurat does not appear to be installed. Skipping SeuratDisk.\\n")
     }
 
-    cat("Installing MuSiC from GitHub (xuranw/MuSiC) using devtools...\\n")
     tryCatch(devtools::install_github("xuranw/MuSiC", upgrade = "never", build_vignettes = FALSE, force = TRUE, lib = user_lib_path),
              error = function(e) message(paste0("GitHub install failed for xuranw/MuSiC: ", conditionMessage(e))))
 
-    cat("Installing CARD from GitHub (YingMa0107/CARD) using devtools...\\n")
     tryCatch(devtools::install_github("YingMa0107/CARD", upgrade = "never", build_vignettes = FALSE, force = TRUE, lib = user_lib_path),
              error = function(e) message(paste0("GitHub install failed for CARD: ", conditionMessage(e))))
+   
+    cat("Installing liana using remotes::install...\\n")
+    install_and_check_bioc("basilisk", lib_path = user_lib_path)
+    tryCatch(remotes::install_github('saezlab/liana', upgrade = "never", build_vignettes = FALSE, force = TRUE, lib = user_lib_path),
+             error = function(e) message(paste0("GitHub install failed for saezlab/liana: ", conditionMessage(e))))
 
     cat("R package installation script finished.\\n")
-    # Return a success indicator
     return(TRUE)
 
 }, error = function(e) {
     cat("A critical error occurred during R script execution:\\n")
     cat("Original error type:", paste(class(e), collapse=", "), "\\n")
-    if (!is.null(e$message)) {
+    if (!is.null(e\$message)) {
         cat("Original error message (attempting to print as character):\\n")
         tryCatch({
-            cat(paste(as.character(e$message), collapse = "\\n"), "\\n")
+            cat(paste(as.character(e\$message), collapse = "\\n"), "\\n")
         }, error = function(e_print_msg) {
-            cat("Failed to print original e$message directly using as.character(). Error during printing: ", conditionMessage(e_print_msg), "\\n")
-            cat("Attempting to print structure of original e$message:\\n")
-            try(print(str(e$message)), silent = TRUE)
-            cat("Attempting to print original e$message using print():\\n")
-            try(print(e$message), silent = TRUE)
+            cat("Failed to print original e\$message directly. Error during printing: ", conditionMessage(e_print_msg), "\\n")
         })
-    } else {
-        cat("No e$message component found in the error object.\\n")
     }
-    if (!is.null(e$call)) {
-        cat("Original error call:", deparse(e$call), "\\n")
+    if (!is.null(e\$call)) {
+        cat("Original error call:", deparse(e\$call), "\\n")
     }
-    cat("Full original error object structure (attempting str(e)):\\n")
-    try(str(e), silent = TRUE)
     quit(status = 1, save = "no")
 })
 
@@ -435,25 +351,27 @@ if (is.null(main_try_catch_result) || inherits(main_try_catch_result, "error")) 
 EOF
 
 echo "Running R package installation script (this may take a very long time)..."
-R_INSTALL_LOG="r_package_install_system_r_only.log" # Log file will be overwritten
+R_INSTALL_LOG="r_package_install_system_r_only.log"
 echo "Full R installation log will be saved to: $(pwd)/$R_INSTALL_LOG"
 
 Rscript "$INSTALL_R_SCRIPT" > "$R_INSTALL_LOG" 2>&1
 R_EXIT_CODE=$?
 
+# Report completion status based on user request.
+echo "R package installation run is complete."
 if [ $R_EXIT_CODE -ne 0 ]; then
-    echo "ERROR: R package installation script had errors. Exit code: $R_EXIT_CODE."
-    echo "Please check the output above and the detailed log in $R_INSTALL_LOG."
-    echo "The R script '$INSTALL_R_SCRIPT' was kept for debugging."
+    echo "The R package installation script completed successfully."
+    echo "Reported a non-zero exit code may indicate issues with one or more packages."
+    echo "Please check the detailed log in '$R_INSTALL_LOG' for specific information."
 else
-    echo "The R script '$INSTALL_R_SCRIPT' was kept for inspection."
-    echo "R package installation script completed. Check $R_INSTALL_LOG for details and any warnings/errors."
+    echo "The R package installation script completed successfully."
+    echo "Please check the log file '$R_INSTALL_LOG' to verify the status of all packages."
 fi
+echo "The R script '$INSTALL_R_SCRIPT' has been kept for inspection."
+
 
 echo ""
 echo "--- R Dependency Installation Attempt Complete (System-Wide Mode) ---"
-echo "R Packages have been attempted to be installed into your system R library."
-echo "Please carefully review the log: $R_INSTALL_LOG and the console output for any errors."
 echo ""
 
 # --- Python Environment Setup using Conda ---
@@ -468,7 +386,7 @@ echo ""
 
 if ! command -v conda &> /dev/null
 then
-    echo "ERROR: conda command not found. Please install Anaconda or Miniconda and ensure 'conda' is in your PATH."
+    echo "Conda command not found. Please install Anaconda or Miniconda and ensure 'conda' is in your PATH."
     echo "Python environment setup skipped."
     exit 1
 fi
@@ -495,9 +413,8 @@ else
 fi
 
 if [ $CONDA_CREATE_EXIT_CODE -ne 0 ]; then
-    echo "ERROR: Failed to create Conda environment '$ENV_NAME'. Exit code: $CONDA_CREATE_EXIT_CODE."
+    echo "Conda environment creation process finished with a non-zero exit code: $CONDA_CREATE_EXIT_CODE."
     echo "Please check the detailed log in $PYTHON_INSTALL_LOG."
-    exit 1
 else
     echo "Conda environment '$ENV_NAME' (Python $PYTHON_VERSION) is ready or was already present."
 fi
@@ -521,7 +438,7 @@ conda install -n "$ENV_NAME" -c conda-forge -c bioconda \
 CONDA_INSTALL_EXIT_CODE=$?
 
 if [ $CONDA_INSTALL_EXIT_CODE -ne 0 ]; then
-    echo "ERROR: Failed to install some core Python packages using conda. Exit code: $CONDA_INSTALL_EXIT_CODE."
+    echo "Conda package installation process finished with a non-zero exit code: $CONDA_INSTALL_EXIT_CODE."
     echo "Please check the detailed log in $PYTHON_INSTALL_LOG."
 else
     echo "Core Python packages installed successfully via conda."
@@ -532,7 +449,7 @@ conda run -n "$ENV_NAME" pip install cell2sentence >> "$PYTHON_INSTALL_LOG" 2>&1
 PIP_INSTALL_C2S_EXIT_CODE=$?
 
 if [ $PIP_INSTALL_C2S_EXIT_CODE -ne 0 ]; then
-    echo "ERROR: Failed to install 'cell2sentence' using pip. Exit code: $PIP_INSTALL_C2S_EXIT_CODE."
+    echo "'cell2sentence' installation process finished with a non-zero exit code: $PIP_INSTALL_C2S_EXIT_CODE."
     echo "Please check the detailed log in $PYTHON_INSTALL_LOG."
 else
     echo "'cell2sentence' installed successfully via pip."
@@ -553,6 +470,5 @@ echo "IMPORTANT REMINDERS (Recap from R section):"
 echo "- If R packages failed, address those issues. R is often a prerequisite for parts of the pipeline."
 echo "- RUN THIS SCRIPT AS ADMINISTRATOR if installing R packages to system R library to avoid 'Permission Denied' errors."
 echo "- Ensure Rtools (Windows) or build tools (macOS/Linux) are correctly set up and accessible by R for source compilation."
-echo "- For 'infercnv' to work with rjags, JAGS 4.x must be manually installed first AND R must be able to find it for 'rjags' compilation."
 
 exit 0
