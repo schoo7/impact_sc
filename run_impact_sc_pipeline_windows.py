@@ -42,12 +42,22 @@ def run_script(script_path: str, script_type: str, params: dict, module_name: st
         env["IMPACT_SC_QC_MIN_NFEATURE_RNA"] = str(params.get("qc_min_nfeature_rna", 200))
         env["IMPACT_SC_QC_MAX_NFEATURE_RNA"] = str(params.get("qc_max_nfeature_rna", 6000))
         env["IMPACT_SC_QC_MAX_PERCENT_MT"] = str(params.get("qc_max_percent_mt", 10))
+        env["IMPACT_SC_PCA_DIMS"] = str(params.get("pca_dims", 50))
         print(f"Setting environment variables for module {module_name}:")
         print(f"  IMPACT_SC_REMOVE_DOUBLETS = {env['IMPACT_SC_REMOVE_DOUBLETS']}")
         print(f"  IMPACT_SC_REGRESS_CELL_CYCLE = {env['IMPACT_SC_REGRESS_CELL_CYCLE']}")
         print(f"  IMPACT_SC_QC_MIN_NFEATURE_RNA = {env['IMPACT_SC_QC_MIN_NFEATURE_RNA']}")
         print(f"  IMPACT_SC_QC_MAX_NFEATURE_RNA = {env['IMPACT_SC_QC_MAX_NFEATURE_RNA']}")
         print(f"  IMPACT_SC_QC_MAX_PERCENT_MT = {env['IMPACT_SC_QC_MAX_PERCENT_MT']}")
+        print(f"  IMPACT_SC_PCA_DIMS = {env['IMPACT_SC_PCA_DIMS']}")
+        
+    elif module_name == "02a_harmony_c2s_prep":
+        env["IMPACT_SC_CLUSTER_RESOLUTION"] = str(params.get("cluster_resolution", 0.1))
+        env["IMPACT_SC_DIMS_FOR_CLUSTERING"] = str(params.get("dims_for_clustering", 50))
+        print(f"Setting environment variables for module {module_name}:")
+        print(f"  IMPACT_SC_CLUSTER_RESOLUTION = {env['IMPACT_SC_CLUSTER_RESOLUTION']}")
+        print(f"  IMPACT_SC_DIMS_FOR_CLUSTERING = {env['IMPACT_SC_DIMS_FOR_CLUSTERING']}")
+
 
     elif module_name == "02b_c2s":
         h5ad_input_for_c2s = params.get("h5ad_path_for_c2s")
