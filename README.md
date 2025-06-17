@@ -424,12 +424,12 @@ This will execute the modules you selected in the order you specified.
 | **03_cell_type_annotation** | Cell type annotation | SingleR reference |
 | **04a_basic_visualization** | UMAP, tSNE, plots | Processed data |
 | **04b_DE_gsea** | Differential expression | Annotated data |
-| **04c_decoupler** | Pathway analysis | CollecTRI/PROGENy files |
+| **04c_decoupler** | Pathway analysis | Annotated data |
 | **04d_ucell_scores** | Gene signatures | MSigDB data |
 | **04e_pseudotime** | Trajectory analysis | Start cell barcode |
 | **04f_query_projection** | Query mapping | Query RDS file |
-| **04g_card** | spatial data annotation | spatial RDS file |
-| **04h_cell_chat** | cellchat predicting | cellchat RDS file |
+| **04g_card** | Spatial data annotation | Spatial RDS file |
+| **04h_cell_chat** | Cellchat predicting | Annotated data |
 
 ---
 
