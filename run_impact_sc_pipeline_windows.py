@@ -35,7 +35,21 @@ def run_script(script_path: str, script_type: str, params: dict, module_name: st
         env["IMPACT_SC_INPUT_DATA_PATHS"] = ";".join(params["input_data_paths"])
 
     # --- Environment variable settings for specific modules ---
-    if module_name == "02b_c2s":
+    if module_name == "01_data_processing":
+        # Set QC and optional processing parameters from the interactive setup
+        env["IMPACT_SC_REMOVE_DOUBLETS"] = str(params.get("remove_doublets", False)).lower()
+        env["IMPACT_SC_REGRESS_CELL_CYCLE"] = str(params.get("regress_cell_cycle", False)).lower()
+        env["IMPACT_SC_QC_MIN_NFEATURE_RNA"] = str(params.get("qc_min_nfeature_rna", 200))
+        env["IMPACT_SC_QC_MAX_NFEATURE_RNA"] = str(params.get("qc_max_nfeature_rna", 6000))
+        env["IMPACT_SC_QC_MAX_PERCENT_MT"] = str(params.get("qc_max_percent_mt", 10))
+        print(f"Setting environment variables for module {module_name}:")
+        print(f"  IMPACT_SC_REMOVE_DOUBLETS = {env['IMPACT_SC_REMOVE_DOUBLETS']}")
+        print(f"  IMPACT_SC_REGRESS_CELL_CYCLE = {env['IMPACT_SC_REGRESS_CELL_CYCLE']}")
+        print(f"  IMPACT_SC_QC_MIN_NFEATURE_RNA = {env['IMPACT_SC_QC_MIN_NFEATURE_RNA']}")
+        print(f"  IMPACT_SC_QC_MAX_NFEATURE_RNA = {env['IMPACT_SC_QC_MAX_NFEATURE_RNA']}")
+        print(f"  IMPACT_SC_QC_MAX_PERCENT_MT = {env['IMPACT_SC_QC_MAX_PERCENT_MT']}")
+
+    elif module_name == "02b_c2s":
         h5ad_input_for_c2s = params.get("h5ad_path_for_c2s")
         c2s_model_path_or_name = params.get("c2s_model_path_or_name") # Get the model path/name
         
@@ -121,9 +135,6 @@ def run_script(script_path: str, script_type: str, params: dict, module_name: st
         env["IMPACT_SC_DE_GENE"] = de_gsea_plot_gene
         print(f"Setting IMPACT_SC_DE_GENE for Module 4b to: '{de_gsea_plot_gene if de_gsea_plot_gene else 'empty (skip)'}'")
 
-    # --- [MODIFICATION] ---
-    # The following block that set environment variables for CSV paths has been removed
-    # as the R script now downloads the networks directly.
     elif module_name == "04c_decoupler":
         print("Info: For Module 4c, the R script will automatically download DecoupleR networks.")
         print("No CSV path environment variables are needed.")
@@ -177,6 +188,28 @@ def run_script(script_path: str, script_type: str, params: dict, module_name: st
         env["IMPACT_SC_PALANTIR_START_CELL"] = palantir_start_cell if palantir_start_cell else ""
         if palantir_start_cell: print(f"Setting IMPACT_SC_PALANTIR_START_CELL: {palantir_start_cell}")
         else: print("Warning: palantir_start_cell not set for Pseudotime.")
+
+    elif module_name == "04h_cell_chat":
+        source_groups = params.get("cellchat_source_groups", "")
+        target_groups = params.get("cellchat_target_groups", "")
+        liana_method = params.get("liana_method", "logfc") # Default to 'logfc' if not specified
+
+        if not source_groups or not target_groups:
+            error_msg = f"ERROR: Source or Target groups for LIANA (module 04h) are not defined in params.json."
+            print(error_msg)
+            try:
+                with open(log_file_path, 'a', encoding='utf-8', errors='replace') as lf: lf.write(f"\nOrchestrator Error: {error_msg}\n")
+            except IOError: pass
+            return False # Fail the module
+        
+        env["IMPACT_SC_CELLCHAT_SOURCE_GROUPS"] = source_groups
+        env["IMPACT_SC_CELLCHAT_TARGET_GROUPS"] = target_groups
+        env["IMPACT_SC_LIANA_METHOD"] = liana_method
+
+        print(f"Setting environment variables for module {module_name}:")
+        print(f"  IMPACT_SC_CELLCHAT_SOURCE_GROUPS = {env['IMPACT_SC_CELLCHAT_SOURCE_GROUPS']}")
+        print(f"  IMPACT_SC_CELLCHAT_TARGET_GROUPS = {env['IMPACT_SC_CELLCHAT_TARGET_GROUPS']}")
+        print(f"  IMPACT_SC_LIANA_METHOD = {env['IMPACT_SC_LIANA_METHOD']}")
 
     # --- Script execution logic ---
     stdout_data = None
@@ -386,7 +419,8 @@ def main():
         "04d_ucell_scores": ("R", "04d_ucell_scores.R"),
         "04e_pseudotime": ("R", "04e_pseudotime.R"),
         "04f_query_projection": ("R", "04f_query_projection.R"),
-        "04g_card": ("R", "04g_card.R")
+        "04g_card": ("R", "04g_card.R"),
+        "04h_cell_chat": ("R", "04h_cell_chat.R") # Renamed module
     }
 
     selected_modules = params.get("selected_modules", [])
