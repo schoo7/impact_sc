@@ -44,6 +44,12 @@ if (!dir.exists(base_output_path)) {
 }
 message(paste("Output directory set to:", base_output_path))
 
+# --- NEW: User-configurable clustering parameters ---
+# Read from environment variables, with defaults if not set
+cluster_resolution <- as.numeric(Sys.getenv("IMPACT_SC_CLUSTER_RESOLUTION", 0.1))
+dims_for_clustering_user <- as.numeric(Sys.getenv("IMPACT_SC_DIMS_FOR_CLUSTERING", 50))
+# --- End new section ---
+
 # Load species-specific annotation database
 if (species == "human") {
   if (requireNamespace("org.Hs.eg.db", quietly = TRUE)) { library(org.Hs.eg.db); org_db_object <- org.Hs.eg.db }
@@ -172,31 +178,9 @@ if ("RNA" %in% Assays(obj) && DefaultAssay(obj) != "RNA") {
 }
 
 
-# Check if the RNA assay is multi-layered (e.g. after IntegrateLayers if it creates them)
-# and join them for clustering if necessary.
-# This JoinLayers call assumes that if multiple layers exist in the RNA assay,
-# they should be merged into a single 'data' layer for downstream FindNeighbors/FindClusters.
-# For Seurat v5, IntegrateLayers with HarmonyIntegration should produce a new reduction,
-# and the original assay (e.g., RNA) might remain as is or have layers joined based on method.
-# If 'RNA' assay has multiple layers (e.g. 'counts.batch1', 'counts.batch2'), JoinLayers is needed.
-# However, Harmony operates on PCA and creates a new 'harmony' reduction.
-# Clustering should use the 'harmony' reduction, and FindMarkers etc., would use the RNA assay.
-# Let's ensure the RNA assay is suitable for downstream tasks like FindMarkers if needed,
-# but clustering relies on the 'harmony' reduction.
-
 if (inherits(obj@assays[[DefaultAssay(obj)]], "Assay5")) {
     assay_obj_check <- obj@assays[[DefaultAssay(obj)]]
-    # Check for multiple data layers that might need joining for functions expecting a single 'data' or 'counts'
-    # Typically, `counts` and `data` are the primary layers. If integration created e.g. `data.1`, `data.2`, JoinLayers is useful.
-    # `IntegrateLayers` with `HarmonyIntegration` should *not* typically split the `assay` specified, but rather use its `pca`.
-    # This JoinLayers call might be more relevant if using other integration methods that modify the assay directly.
-    # For now, let's assume RNA assay is coherent. If issues arise downstream, this might need revisiting.
-    
-    # A more direct check for layers that `FindNeighbors` might get confused by:
     if (length(Layers(obj, assay = DefaultAssay(obj))) > 0 && !"data" %in% Layers(obj, assay = DefaultAssay(obj)) && !"counts" %in% Layers(obj, assay = DefaultAssay(obj))) {
-        # If there are layers, but no default 'data' or 'counts' layer, it might be an issue.
-        # However, FindNeighbors uses the reduction, so this is less critical here.
-        # This condition might indicate that JoinLayers is needed before operations like FindMarkers or H5AD conversion.
         message("The default assay has multiple layers but no single 'data' or 'counts' layer. Consider JoinLayers().")
     }
 }
@@ -209,14 +193,35 @@ if (!(reduction_for_clustering %in% Reductions(obj))) {
 if (ncol(obj[[reduction_for_clustering]]) == 0) {
     stop(paste("Reduction '", reduction_for_clustering, "' has 0 dimensions. Check previous steps.", sep=""))
 }
-dims_for_clustering <- 1:min(50, ncol(obj[[reduction_for_clustering]]))
-message(paste("Using dimensions", min(dims_for_clustering), "to", max(dims_for_clustering), "from reduction '", reduction_for_clustering, "' for FindNeighbors.", sep=""))
+
+# --- MODIFIED CLUSTERING PARAMETERS ---
+# Use the user-defined number of dimensions, ensuring it doesn't exceed available dimensions
+dims_for_clustering <- 1:min(dims_for_clustering_user, ncol(obj[[reduction_for_clustering]]))
+message(paste("Using dimensions", min(dims_for_clustering), "to", max(dims_for_clustering), "from reduction '", reduction_for_clustering, "' for FindNeighbors."))
+message(paste("User-selected clustering resolution is", cluster_resolution, "."))
+message(paste("Note for C2S users: recommended dims_for_clustering is 1024. Normal usage: 50."))
+# --- END MODIFIED CLUSTERING PARAMETERS ---
 
 
 obj <- FindNeighbors(obj, dims = dims_for_clustering, reduction = reduction_for_clustering, verbose = FALSE)
-obj <- FindClusters(obj, resolution = 0.1, cluster.name = "rna_snn_res.0.1", verbose = FALSE)
+
+# --- MODIFIED CLUSTERING ---
+# Dynamically create cluster name based on user-selected resolution
+low_res_cluster_name <- paste0("rna_snn_res.", cluster_resolution)
+message(paste("Finding low-resolution clusters with resolution =", cluster_resolution, "and storing in '", low_res_cluster_name, "'"))
+
+# Run clustering with user-defined resolution
+obj <- FindClusters(obj, resolution = cluster_resolution, cluster.name = low_res_cluster_name, verbose = FALSE)
+
+# Also run a high-resolution clustering for other potential uses (as in original script)
+message("Finding high-resolution clusters with resolution = 2 for additional analysis.")
 obj <- FindClusters(obj, resolution = 2, cluster.name = "rna_snn_res.2", verbose = FALSE)
-obj$cell_type_low_res <- obj$rna_snn_res.0.1 # This will be used as input label for C2S
+
+# Set cell_type_low_res from the user-defined resolution cluster results
+obj$cell_type_low_res <- obj[[low_res_cluster_name, drop=TRUE]]
+message(paste("'cell_type_low_res' column created from the clustering results of resolution", cluster_resolution))
+# --- END MODIFIED CLUSTERING ---
+
 
 # Save the Seurat object at this stage, before H5AD conversion
 prepped_obj_for_c2s_path <- file.path(base_output_path, "02_module2_c2s_prepped_object.RDS")
@@ -233,18 +238,11 @@ h5ad_path <- file.path(base_output_path, "02_module2_for_c2s.h5ad")
 
 tryCatch({
   # Ensure the correct assay and its data are used for saving.
-  # H5AD conversion often expects 'counts' and 'data' (normalized).
-  # If the assay has multiple layers (e.g., counts.sample1, data.sample1),
-  # JoinLayers is needed to create a single 'counts' and 'data' layer.
-  
   current_default_assay <- DefaultAssay(obj)
   message(paste("Preparing assay '", current_default_assay, "' for H5AD conversion.", sep=""))
   
-  # Check if layers need to be joined for the default assay
-  # This is crucial if the assay was split by sample (e.g., after integration or loading)
-  # The log indicated layers like "counts.sample1", "counts.sample2", etc.
   if (length(Layers(obj, assay = current_default_assay)) > 0 && 
-      any(grepl("\\.", Layers(obj, assay = current_default_assay)))) { # Heuristic: check for dot in layer names
+      any(grepl("\\.", Layers(obj, assay = current_default_assay)))) { 
       message(paste("Joining layers for assay '", current_default_assay, "' before H5AD conversion.", sep=""))
       obj <- JoinLayers(obj, assay = current_default_assay)
       message(paste("Layers for assay '", current_default_assay, "' after JoinLayers:", sep=""))
@@ -255,13 +253,14 @@ tryCatch({
   message("Available layers in this assay for H5Seurat:")
   print(Layers(obj, assay = current_default_assay))
 
- obj[["RNA3"]] <- as(obj = obj[["RNA"]], Class = "Assay")  
- DefaultAssay(obj) <- "RNA3"  # Set default assay
- obj[["RNA"]] <- NULL  # Remove old RNA slot
- obj <- RenameAssays(obj = obj, RNA3 = 'RNA') 
+  # Convert to a standard Assay from Assay5 if needed for compatibility
+  obj[["RNA3"]] <- as(obj = obj[["RNA"]], Class = "Assay")  
+  DefaultAssay(obj) <- "RNA3"
+  obj[["RNA"]] <- NULL
+  obj <- RenameAssays(obj = obj, RNA3 = 'RNA') 
 
-  SaveH5Seurat(obj, filename = h5seurat_path, overwrite = TRUE, assay = current_default_assay)
-  Convert(h5seurat_path, dest = "h5ad", assay = current_default_assay, overwrite = TRUE) # Specify assay for Convert as well
+  SaveH5Seurat(obj, filename = h5seurat_path, overwrite = TRUE, assay = 'RNA')
+  Convert(h5seurat_path, dest = "h5ad", assay = 'RNA', overwrite = TRUE)
   message(paste("H5Seurat saved to:", h5seurat_path))
   message(paste("H5AD (for Python Cell2Sentence) saved to:", h5ad_path))
 }, error = function(e) {
@@ -273,8 +272,8 @@ Sys.setenv(H5AD_FILE_PATH = h5ad_path)
 c2s_output_dir_full_path <- file.path(base_output_path, "C2S_output")
 Sys.setenv(C2S_OUTPUT_DIR = c2s_output_dir_full_path)
 Sys.setenv(C2S_EMBEDDINGS_CSV = file.path(c2s_output_dir_full_path, "c2s_cell_embeddings.csv"))
-Sys.setenv(C2S_PREDICTED_CSV = file.path(c2s_output_dir_full_path, "predicted_cell_types.csv")) # Corrected this line
-Sys.setenv(SPECIES_FOR_C2S = species) # Pass species to Python
+Sys.setenv(C2S_PREDICTED_CSV = file.path(c2s_output_dir_full_path, "predicted_cell_types.csv"))
+Sys.setenv(SPECIES_FOR_C2S = species)
 
 if (!dir.exists(c2s_output_dir_full_path)) {
   tryCatch(dir.create(c2s_output_dir_full_path, recursive = TRUE),
@@ -283,4 +282,3 @@ if (!dir.exists(c2s_output_dir_full_path)) {
 
 message("Finished Module 2a: Harmony and Cell2Sentence Preparation.")
 message(paste("Next step: Run '02b_run_cell2sentence.py' with H5AD_FILE_PATH set to:", h5ad_path))
-
