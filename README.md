@@ -428,6 +428,8 @@ This will execute the modules you selected in the order you specified.
 | **04d_ucell_scores** | Gene signatures | MSigDB data |
 | **04e_pseudotime** | Trajectory analysis | Start cell barcode |
 | **04f_query_projection** | Query mapping | Query RDS file |
+| **04g_card** | spatial data annotation | spatial RDS file |
+| **04h_cell_chat** | cellchat predicting | cellchat RDS file |
 
 ---
 
