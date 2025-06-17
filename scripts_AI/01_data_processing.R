@@ -35,6 +35,10 @@ library(UCell)
 library(viridis)
 library(reshape2)
 library(pheatmap)
+
+
+
+
 # --- IMPACT-sc Script Parameters (READ FROM ENVIRONMENT VARIABLES) ---
 # Species: Read from environment variable, default to "human"
 species <- Sys.getenv("IMPACT_SC_SPECIES", "human")
@@ -45,6 +49,18 @@ if (!dir.exists(base_output_path)) {
   dir.create(base_output_path, recursive = TRUE)
 }
 message(paste("Output directory set to:", base_output_path))
+
+# --- NEW: Optional Processing Parameters ---
+# Read user choices from environment variables set by the python orchestrator
+remove_doublets <- tolower(Sys.getenv("IMPACT_SC_REMOVE_DOUBLETS", "false")) == "true"
+regress_cell_cycle <- tolower(Sys.getenv("IMPACT_SC_REGRESS_CELL_CYCLE", "false")) == "true"
+qc_min_nfeature_rna <- as.numeric(Sys.getenv("IMPACT_SC_QC_MIN_NFEATURE_RNA", 200))
+qc_max_nfeature_rna <- as.numeric(Sys.getenv("IMPACT_SC_QC_MAX_NFEATURE_RNA", 6000))
+qc_max_percent_mt <- as.numeric(Sys.getenv("IMPACT_SC_QC_MAX_PERCENT_MT", 10))
+# --- NEW: User-configurable PCA dimensions ---
+# Read from environment variable, default to 50 if not set
+pca_dims <- as.numeric(Sys.getenv("IMPACT_SC_PCA_DIMS", 50))
+
 
 # Load species-specific annotation database
 if (species == "human") {
@@ -77,6 +93,7 @@ message("Starting Module 1: Data Processing")
 # Read input data path from environment variable, default to ../ori.RDS if not set.
 obj_rds_path <- Sys.getenv("IMPACT_SC_INPUT_DATA_PATH", "../ori.RDS") 
 
+# --- UNCHANGED FILE LOADING BLOCK (FROM YOUR ORIGINAL FILE) ---
 obj <- tryCatch({
   # Check if the path is a directory (10x format) or a file (RDS format)
   if (dir.exists(obj_rds_path)) {
@@ -110,9 +127,11 @@ obj <- tryCatch({
   stop(paste("Error loading data from", obj_rds_path, ":", e$message))
   return(NULL)
 })
+# --- END OF UNCHANGED FILE LOADING BLOCK ---
 
 if (is.null(obj)) stop("Failed to load input data for IMPACT-sc.")
 
+# --- UNCHANGED ---
 if (length(unique(obj$orig.ident)) > 1) {
     message("Multiple samples detected by 'orig.ident'.")
 }
@@ -121,16 +140,75 @@ if (inherits(obj[["RNA"]], "list") || (is.list(obj@assays$RNA) && inherits(obj@a
     obj <- JoinLayers(obj, assay="RNA")
 }
 
-# Perform basic quality control
-obj <- subset(obj, subset = nFeature_RNA > 200 & nFeature_RNA < 6000 )
+# --- REPLACEMENT FOR ORIGINAL QC ---
+# Calculate mitochondrial percentage first
+obj[["percent.mt"]] <- PercentageFeatureSet(obj, pattern = "^MT-")
+# Generate and save QC violin plot BEFORE filtering
+message("Generating pre-filtering QC violin plot...")
+qc_plot_path <- file.path(base_output_path, "01_qc_violin_plot_before_filtering.png")
+tryCatch({
+    png(qc_plot_path, width=12, height=6, units="in", res=300)
+    print(VlnPlot(obj, features = c("nFeature_RNA", "nCount_RNA", "percent.mt"), ncol = 3, pt.size = 0))
+    dev.off()
+    message(paste("QC plot saved to:", qc_plot_path))
+}, error=function(e) { message(paste("Could not save QC plot:", e)) })
+# Apply QC filtering based on user-defined parameters
+message(paste("Applying QC filters: nFeature_RNA >", qc_min_nfeature_rna, "& nFeature_RNA <", qc_max_nfeature_rna, "& percent.mt <", qc_max_percent_mt))
+obj <- subset(obj, subset = nFeature_RNA > qc_min_nfeature_rna & nFeature_RNA < qc_max_nfeature_rna & percent.mt < qc_max_percent_mt)
 message(paste("Cells after QC filtering:", ncol(obj)))
+# --- END OF QC REPLACEMENT ---
 
-# Standard single-cell processing
+
+# --- NEW: OPTIONAL DOUBLET REMOVAL ---
+if (remove_doublets) {
+    message("Attempting to remove doublets with scDblFinder...")
+    tryCatch({
+        # To avoid issues with object states, convert to SCE, find doublets, then filter the original Seurat object
+        sce <- as.SingleCellExperiment(obj)
+        sce <- scDblFinder(sce)
+        obj$scDblFinder.class <- sce$scDblFinder.class
+        obj <- subset(obj, scDblFinder.class == "singlet")
+        message(paste("Cells after doublet removal:", ncol(obj)))
+    }, error = function(e) {
+        warning(paste("Doublet removal step failed:", e$message, ". Continuing without it."))
+    })
+}
+
+
+# --- UNCHANGED: Standard single-cell processing ---
 obj[["RNA"]] <- split(obj[["RNA"]], f = obj$orig.ident)
 obj <- NormalizeData(obj, verbose = FALSE)
 obj <- FindVariableFeatures(obj, verbose = FALSE)
-obj <- ScaleData(obj, verbose = FALSE)
-obj <- RunPCA(obj, verbose = FALSE)
+
+
+# --- MODIFICATION FOR OPTIONAL CELL CYCLE REGRESSION ---
+vars_to_regress <- NULL
+if (regress_cell_cycle) {
+    message("Calculating cell cycle scores...")
+    s.genes <- cc.genes$s.genes
+    g2m.genes <- cc.genes$g2m.genes
+    if(species == "mouse"){
+        tryCatch({
+            s.genes <- homologene(s.genes, inTax = 9606, outTax = 10090)$`10090`
+            g2m.genes <- homologene(g2m.genes, inTax = 9606, outTax = 10090)$`10090`
+        }, error = function(e){
+            warning("Could not convert cell cycle genes to mouse homologs. Using human genes.")
+        })
+    }
+    obj <- CellCycleScoring(obj, s.features = s.genes, g2m.features = g2m.genes, set.ident = FALSE)
+    vars_to_regress <- c("S.Score", "G2M.Score")
+    message("Cell cycle scores will be regressed out during scaling.")
+}
+# Pass the variables to regress to ScaleData
+obj <- ScaleData(obj, vars.to.regress = vars_to_regress, verbose = FALSE)
+# --- END OF MODIFICATION ---
+
+
+# --- MODIFIED PCA STEP ---
+message(paste("Running PCA and computing", pca_dims, "principal components."))
+obj <- RunPCA(obj, npcs = pca_dims, verbose = FALSE)
+# --- END MODIFIED PCA STEP ---
+
 
 module1_output_path <- file.path(base_output_path, "01_module1_processed.RDS") 
 tryCatch({
