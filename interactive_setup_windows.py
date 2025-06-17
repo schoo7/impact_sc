@@ -30,8 +30,19 @@ def ask_question(prompt: str, default_value: str = None, choices: List[str] = No
             response = default_value
         
         if choices:
-            choice_map = {c.lower(): c for c in choices} # Case-insensitive matching for choices
-            if response.lower() in choice_map:
+            # Create a dictionary for case-insensitive matching
+            choice_map = {c.lower(): c for c in choices}
+            
+            # For multi-select, split the response and validate each part
+            if "," in response:
+                responses = [r.strip().lower() for r in response.split(',')]
+                valid_responses = [choice_map[r] for r in responses if r in choice_map]
+                if len(valid_responses) == len(responses): # All parts are valid
+                    return ",".join(valid_responses) # Return the original casing, comma-separated
+                else:
+                    print(f"Invalid choice detected. Please select from: {', '.join(choices)}")
+                    print("You can provide multiple values separated by commas.")
+            elif response.lower() in choice_map:
                 return choice_map[response.lower()] # Return the original casing of the choice
             else:
                 print(f"Invalid choice. Please select from: {', '.join(choices)}")
@@ -146,13 +157,14 @@ def select_modules() -> List[str]:
         "4d": "04d_ucell_scores",
         "4e": "04e_pseudotime", 
         "4f": "04f_query_projection",
-        "4g": "04g_card (Requires R >= 4.3.0)"
+        "4g": "04g_card (Requires R >= 4.3.0)",
+        "4h": "04h_cell_chat"
     }
     print("\nAvailable IMPACT-sc Modules:")
     for key, name in all_modules.items():
         print(f"  {key}: {name}")
 
-    selected_keys_str = ask_question("Enter the keys of modules to run, separated by commas (e.g., 1,2a,2b,2c,3,4a)")
+    selected_keys_str = ask_question("Enter the keys of modules to run, separated by commas (e.g., 1,2a,2b,2c,3,4a,4h)")
     selected_keys = [key.strip().lower() for key in selected_keys_str.split(',') if key.strip()]
 
     selected_modules_list = []
@@ -312,6 +324,13 @@ def setup_demo_mode(downloaded_data: Dict[str, str], rscript_executable_path: st
         choices=["yes", "no"]
     ).lower() == "yes"
 
+    include_cellchat = ask_question(
+        "Include Cell-Cell Communication (CellChat/LIANA) analysis (Module 04h)?",
+        "yes",
+        choices=["yes", "no"]
+    ).lower() == "yes"
+
+
     params: Dict[str, Any] = {}
     pipeline_base_dir = normalize_path(os.path.dirname(os.path.abspath(__file__)))
     
@@ -321,6 +340,14 @@ def setup_demo_mode(downloaded_data: Dict[str, str], rscript_executable_path: st
     params["species"] = "human"
     params["output_directory"] = normalize_path(os.path.abspath("demo_output"))
     
+    # --- Data Processing Options for DEMO ---
+    params["remove_doublets"] = False
+    params["regress_cell_cycle"] = False
+    params["qc_min_nfeature_rna"] = 200
+    params["qc_max_nfeature_rna"] = 6000
+    params["qc_max_percent_mt"] = 10
+    print("Demo mode will use default QC parameters and skip doublet/cell-cycle steps for speed.")
+
     if downloaded_data.get("demo_data"):
         params["input_data_paths"] = [downloaded_data["demo_data"]]
         print(f"Using demo data: {downloaded_data['demo_data']}")
@@ -329,22 +356,35 @@ def setup_demo_mode(downloaded_data: Dict[str, str], rscript_executable_path: st
         print("Please run './download_data.sh' to download demo data or configure custom paths.")
         return False 
     
+    base_modules = ["01_data_processing", "02a_harmony_c2s_prep", "03_cell_type_annotation", "04a_basic_visualization"]
     if include_c2s:
         print("Including Cell2Sentence analysis (slower but more comprehensive)")
-        params["selected_modules"] = [
-            "01_data_processing", "02a_harmony_c2s_prep", "02b_c2s",
-            "02c_load_c2s_result", "03_cell_type_annotation", "04a_basic_visualization"
-        ]
+        c2s_modules = ["02b_c2s", "02c_load_c2s_result"]
+        # insert c2s modules after harmony prep
+        base_modules.insert(2, c2s_modules[1])
+        base_modules.insert(2, c2s_modules[0])
+
         params["h5ad_path_for_c2s"] = normalize_path(os.path.join(params["output_directory"], "02_module2_for_c2s.h5ad"))
         params["c2s_model_path_or_name"] = downloaded_data.get("c2s_model", "vandijklab/C2S-Pythia-410m-cell-type-prediction")
         if downloaded_data.get("c2s_model"): print(f"Using potentially cached Cell2Sentence model (name: {params['c2s_model_path_or_name']})")
         else: print("No cached model hint found. Will download C2S model on first use.")
     else:
         print("Skipping Cell2Sentence for faster demo (using traditional annotation only)")
-        params["selected_modules"] = ["01_data_processing", "02a_harmony_c2s_prep", "03_cell_type_annotation", "04a_basic_visualization"]
         params["h5ad_path_for_c2s"] = None
         params["c2s_model_path_or_name"] = None
     
+    if include_cellchat:
+        print("Including LIANA analysis.")
+        base_modules.append("04h_cell_chat")
+        params["cellchat_source_groups"] = "0,1,2,3"
+        params["cellchat_target_groups"] = "4,5,6,7,8"
+        params["liana_method"] = "logfc" # Set default method for demo mode
+        print(f"Using demo source groups: {params['cellchat_source_groups']}")
+        print(f"Using demo target groups: {params['cellchat_target_groups']}")
+        print(f"Using LIANA method: {params['liana_method']}")
+
+    params["selected_modules"] = base_modules
+
     print("Setting SingleR reference to the downloaded local file for demo.")
     default_ref_path = normalize_path(os.path.join(pipeline_base_dir, "data", "reference", "bmcite_demo.rds"))
     
@@ -465,6 +505,16 @@ def setup_custom_mode(downloaded_data: Dict[str, str], rscript_executable_path: 
     output_dir_input = ask_question("Enter the full path for your desired output/results folder", "demo_output")
     params["output_directory"] = normalize_path(os.path.abspath(output_dir_input))
 
+    # --- NEW: Data Processing & QC Options ---
+    print("\n--- Data Processing Options (Module 01) ---")
+    params["remove_doublets"] = ask_question("Remove potential doublets using scDblFinder?", "no", choices=["yes", "no"]).lower() == "yes"
+    params["regress_cell_cycle"] = ask_question("Regress out cell cycle effects (S/G2M scores)?", "no", choices=["yes", "no"]).lower() == "yes"
+    
+    print("\n--- Quality Control (QC) Parameters (Module 01) ---")
+    params["qc_min_nfeature_rna"] = int(ask_question("Enter minimum nFeature_RNA (genes per cell)", "200"))
+    params["qc_max_nfeature_rna"] = int(ask_question("Enter maximum nFeature_RNA (genes per cell)", "6000"))
+    params["qc_max_percent_mt"] = int(ask_question("Enter maximum mitochondrial gene percentage", "10"))
+    # --- END NEW SECTION ---
 
     print("\n--- Module Selection ---")
     params["selected_modules"] = select_modules()
@@ -505,9 +555,6 @@ def setup_custom_mode(downloaded_data: Dict[str, str], rscript_executable_path: 
             print("CRITICAL ERROR IN SETUP: Module 02b_c2s selected, but no Cell2Sentence model path/name was provided.")
             sys.exit(1)
 
-    # --- [MODIFICATION] ---
-    # The following block that asks for CollecTRI and PROGENy CSV paths has been removed
-    # because the R script will now download them automatically.
     if "04c_decoupler" in params["selected_modules"]:
         print("\n--- DecoupleR Network Information (Module 04c) ---")
         print("Note: This module requires R version 4.3.0 or higher to run.")
@@ -561,6 +608,20 @@ def setup_custom_mode(downloaded_data: Dict[str, str], rscript_executable_path: 
     else:
         params["msigdb_category"] = "H"
         params["ucell_plot_pathway_name"] = ""
+        
+    if "04h_cell_chat" in params["selected_modules"]:
+        print("\n--- Cell-Cell Communication (Module 04h) Specific Inputs ---")
+        print("Enter comma-separated cluster IDs (e.g., 0,1,2,3). Check your clustering results to identify the correct IDs.")
+        params["cellchat_source_groups"] = ask_question("Enter the source cell groups/clusters", "")
+        params["cellchat_target_groups"] = ask_question("Enter the target cell groups/clusters", "")
+        
+        liana_method_choices = ["natmi", "connectome", "logfc", "sca", "cellphonedb"]
+        params["liana_method"] = ask_question(
+            f"Enter LIANA method(s) separated by commas from the list: {', '.join(liana_method_choices)}",
+            "logfc",
+            choices=liana_method_choices
+        )
+
 
     if "03_cell_type_annotation" in params["selected_modules"]:
         print("\n--- SingleR Reference Configuration (Module 03) ---")
