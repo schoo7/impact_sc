@@ -346,7 +346,10 @@ def setup_demo_mode(downloaded_data: Dict[str, str], rscript_executable_path: st
     params["qc_min_nfeature_rna"] = 200
     params["qc_max_nfeature_rna"] = 6000
     params["qc_max_percent_mt"] = 10
-    print("Demo mode will use default QC parameters and skip doublet/cell-cycle steps for speed.")
+    params["pca_dims"] = 50
+    params["cluster_resolution"] = 0.1
+    params["dims_for_clustering"] = 50
+    print("Demo mode will use default QC, PCA, and Clustering parameters for speed.")
 
     if downloaded_data.get("demo_data"):
         params["input_data_paths"] = [downloaded_data["demo_data"]]
@@ -505,16 +508,22 @@ def setup_custom_mode(downloaded_data: Dict[str, str], rscript_executable_path: 
     output_dir_input = ask_question("Enter the full path for your desired output/results folder", "demo_output")
     params["output_directory"] = normalize_path(os.path.abspath(output_dir_input))
 
-    # --- NEW: Data Processing & QC Options ---
-    print("\n--- Data Processing Options (Module 01) ---")
+    # --- Data Processing, QC, PCA, and Clustering Options ---
+    print("\n--- Data Processing & Analysis Parameters (Modules 01 & 02a) ---")
     params["remove_doublets"] = ask_question("Remove potential doublets using scDblFinder?", "no", choices=["yes", "no"]).lower() == "yes"
     params["regress_cell_cycle"] = ask_question("Regress out cell cycle effects (S/G2M scores)?", "no", choices=["yes", "no"]).lower() == "yes"
     
-    print("\n--- Quality Control (QC) Parameters (Module 01) ---")
+    print("\n--- Quality Control (QC) Parameters ---")
     params["qc_min_nfeature_rna"] = int(ask_question("Enter minimum nFeature_RNA (genes per cell)", "200"))
     params["qc_max_nfeature_rna"] = int(ask_question("Enter maximum nFeature_RNA (genes per cell)", "6000"))
     params["qc_max_percent_mt"] = int(ask_question("Enter maximum mitochondrial gene percentage", "10"))
-    # --- END NEW SECTION ---
+    
+    print("\n--- PCA & Clustering Parameters ---")
+    params["pca_dims"] = int(ask_question("Enter number of principal components (PCs) for PCA", "50"))
+    params["cluster_resolution"] = float(ask_question("Enter clustering resolution for FindClusters", "0.1"))
+    params["dims_for_clustering"] = int(ask_question("Enter number of dimensions for clustering (e.g., 50 for UMAP, 1024 for C2S)", "50"))
+    # --- END NEW/MODIFIED SECTION ---
+
 
     print("\n--- Module Selection ---")
     params["selected_modules"] = select_modules()
