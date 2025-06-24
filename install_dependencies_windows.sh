@@ -1,59 +1,136 @@
 #!/bin/bash
 
-echo "--- Starting IMPACT-sc R Dependency Installation (System-Wide Mode) ---"
+# Ollama Model Configuration (if needed for future script enhancements)
+OLLAMA_MODEL_NAME_DEFAULT="gemma3:12b-it-qat" # You can change the default Ollama model if needed
+OLLAMA_BASE_URL_DEFAULT="http://localhost:11434" # Base URL for Ollama API
+
+# Detect OS
+OS_TYPE=""
+case "$(uname -s)" in
+    Linux*)     OS_TYPE="linux";;
+    Darwin*)    OS_TYPE="mac";;
+    CYGWIN*|MSYS*|MINGW*) OS_TYPE="windows";;
+    *)          OS_TYPE="unknown";;
+esac
+
+echo "--- Starting IMPACT-sc R & Python Dependency Installation ($OS_TYPE Mode) ---"
 echo "--- R Packages will be installed into your system R environment ---"
 echo ""
-echo "!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!"
-echo "CRITICAL REMINDER: 'PERMISSION DENIED' ERRORS in previous logs mean your R"
-echo "session does not have write access to the main R library (e.g., F:/R-4.2.3/library)."
-echo "You MUST RUN THIS SCRIPT FROM A GIT BASH TERMINAL THAT HAS BEEN STARTED AS ADMINISTRATOR."
-echo "Right-click your Git Bash shortcut and select 'Run as administrator'."
-echo "Without administrator rights, many package installations/updates WILL FAIL."
-echo "Also, ensure no other R sessions/processes are running that might lock package files."
-echo "!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!"
+
+if [ "$OS_TYPE" == "windows" ]; then
+    echo "!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!"
+    echo "CRITICAL REMINDER (Windows):"
+    echo "- To avoid 'Permission Denied' or 'cannot rename file' errors, you MUST RUN THIS SCRIPT FROM A GIT BASH TERMINAL THAT HAS BEEN STARTED AS ADMINISTRATOR."
+    echo "- ENSURE NO OTHER R SESSIONS OR PROCESSES ARE RUNNING that might lock package files (e.g., RStudio, other R consoles, background R processes)."
+    echo "- If you still encounter issues, try closing all applications and restarting your computer before rerunning the script."
+    echo "!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!"
+elif [ "$OS_TYPE" == "mac" ]; then
+    echo "!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!"
+    echo "CRITICAL REMINDER (macOS):"
+    echo "- If you encounter 'Permission Denied' errors, try running this script with 'sudo' (e.g., 'sudo bash install_deps.sh')."
+    echo "- Ensure no other R sessions or processes are running that might lock package files."
+    echo "!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!"
+else
+    echo "!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!"
+    echo "CRITICAL REMINDER:"
+    echo "- If you encounter 'Permission Denied' errors, try running this script with 'sudo' (e.g., 'sudo bash install_deps.sh')."
+    echo "- Ensure no other R sessions or processes are running that might lock package files."
+    echo "!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!"
+fi
 echo ""
 
 echo "WARNING: This method is generally not recommended due to potential conflicts."
 echo "Ensure your system R is correctly configured in your PATH."
 
-# --- Attempt to add user-specified R path to the script's PATH ---
-# This is useful if R is not in the system PATH.
-# The path F:\R-4.2.3\bin becomes /f/R-4.2.3/bin in Git Bash on Windows.
-# !!!! CRITICAL: CHANGE THIS PATH TO YOUR ACTUAL R INSTALLATION BIN DIRECTORY !!!!
-# Example: If R is installed in C:\Program Files\R\R-4.3.0, then use "/c/Program Files/R/R-4.3.0/bin"
-USER_R_BIN_PATH="/f/R-4.2.3/bin" #
-if [ -d "$USER_R_BIN_PATH" ]; then
-    echo "Attempting to add $USER_R_BIN_PATH to PATH for this script session."
-    export PATH="$USER_R_BIN_PATH:$PATH"
-    echo "Current PATH (first few entries): $(echo "$PATH" | cut -d':' -f1-5)..."
-else
-    echo "Specified R bin path '$USER_R_BIN_PATH' not found. Relying on system PATH."
-    echo "If Rscript is not found later, ensure R's bin directory is in your system PATH or correct this variable."
+# IMPORTANT OS-SPECIFIC PRE-REQUISITES for R Installation (Manual Step)
+echo ""
+echo "========================================================================"
+echo "IMPORTANT: Manual R 4.2.3 Installation (CRITICAL FIRST STEP)"
+echo "========================================================================"
+echo "This script CANNOT automatically install R itself. You MUST manually download and install R 4.2.3."
+echo "Please follow the instructions below to download R 4.2.3:"
+echo ""
+
+if [ "$OS_TYPE" == "windows" ]; then
+    echo "  For Windows, download R 4.2.3 from CRAN: https://cran.r-project.org/bin/windows/base/old/4.2.3/R-4.2.3-win.exe"
+    echo "  Run the downloaded installer (.exe file) and follow the prompts. Ensure R's 'bin' directory is added to your system PATH during installation."
+elif [ "$OS_TYPE" == "mac" ]; then
+    echo "  For macOS, download R 4.2.3 from CRAN: https://cran.r-project.org/bin/macosx/old/R-4.2.3.pkg"
+    echo "  Run the downloaded installer (.pkg file) and follow the prompts. Ensure R's path is correctly set."
+elif [ "$OS_TYPE" == "linux" ]; then
+    echo "  For Linux, follow the official CRAN instructions for your specific distribution to install R 4.2.3:"
+    echo "  https://cran.r-project.org/bin/linux/"
 fi
-# --- End R Path Addition ---
+echo ""
+echo "After manually installing R 4.2.3, you MUST provide its 'bin' directory path to this script."
+echo "This path contains the 'Rscript' command, which this script needs to install R packages."
+echo "========================================================================"
+echo ""
+
+# Get R bin path from user interactively
+USER_R_BIN_PATH=""
+echo "Please enter the full path to your installed R 4.2.3 'bin' directory, for example:"
+if [ "$OS_TYPE" == "windows" ]; then
+    echo "  Windows (Git Bash format): /c/Program Files/R/R-4.2.3/bin or /f/R-4.2.3/bin"
+elif [ "$OS_TYPE" == "mac" ]; then
+    echo "  macOS: /Library/Frameworks/R.framework/Versions/4.2/Resources/bin or /opt/homebrew/bin"
+elif [ "$OS_TYPE" == "linux" ]; then
+    echo "  Linux: /usr/bin/R or /usr/local/bin/R"
+fi
+read -p "R 4.2.3 'bin' directory path: " USER_R_BIN_PATH
+
+# Attempt to add user-specified R path to the script's PATH
+if [ -z "$USER_R_BIN_PATH" ]; then
+    echo "WARNING: R 'bin' directory path not provided. Script will rely on 'Rscript' being in system PATH."
+    echo "If 'Rscript command not found' error occurs later, please ensure R's 'bin' directory is in your system PATH, or re-run the script and provide the correct path."
+else
+    if [ -d "$USER_R_BIN_PATH" ]; then
+        echo "Attempting to add $USER_R_BIN_PATH to PATH for this script session."
+        export PATH="$USER_R_BIN_PATH:$PATH"
+        echo "Current PATH (first few entries): $(echo "$PATH" | cut -d':' -f1-5)..."
+    else
+        echo "ERROR: Specified R 'bin' directory path '$USER_R_BIN_PATH' not found. Please ensure the path is correct."
+        echo "Script will rely on 'Rscript' being in system PATH."
+    fi
+fi
+# End R Path Addition
 
 
-# --- IMPORTANT WINDOWS LOCALE PRE-REQUISITE (Manual Step) ---
+# IMPORTANT OS-SPECIFIC PRE-REQUISITES for Development Tools
 echo ""
 echo "========================================================================"
-echo "IMPORTANT: Manual Step Required BEFORE Running This Script (If on Windows)"
+echo "IMPORTANT: Additional Manual Steps BEFORE Running This Script (OS Specific)"
 echo "========================================================================"
-echo "1. Windows Locale Setting (To prevent 'LC_CTYPE' warnings in R):"
-echo "   - Go to Control Panel > Clock and Region > Region > Administrative tab."
-echo "   - Under 'Language for non-Unicode programs', click 'Change system locale...'"
-echo "   - Ensure 'Beta: Use Unicode UTF-8 for worldwide language support' is UNCHECKED."
-echo "   - Set the system locale to 'English (United States)' for best compatibility."
-echo "   - RESTART your computer after making this change."
+
+if [ "$OS_TYPE" == "windows" ]; then
+    echo "1. Windows Locale Setting (To prevent 'LC_CTYPE' warnings in R):"
+    echo "   - Go to Control Panel > Clock and Region > Region > Administrative tab."
+    echo "   - Under 'Language for non-Unicode programs', click 'Change system locale...'"
+    echo "   - Ensure 'Beta: Use Unicode UTF-8 for worldwide language support' is UNCHECKED."
+    echo "   - Set the system locale to 'English (United States)' for best compatibility."
+    echo ""
+    echo "2. Rtools Installation (For compiling R packages from source):"
+    echo "   - Ensure Rtools (e.g., Rtools42 for R 4.2.x, Rtools43 for R 4.3.x) is correctly installed."
+    echo "   - Crucially, ensure Rtools's 'mingw64/bin' and 'usr/bin' directories (e.g., F:/rtools42/mingw64/bin, F:/rtools42/usr/bin) "
+    echo "     are added to your SYSTEM PATH and accessible by R."
+    echo "   - You can check if R finds them by running 'Sys.which('make')' in R."
+
+elif [ "$OS_TYPE" == "mac" ]; then
+    echo "1. Xcode Command Line Tools (For compiling R packages from source):"
+    echo "   - Open Terminal and run: 'xcode-select --install'"
+    echo "   - This provides 'make', 'gcc', 'g++', which are necessary for compiling R packages."
+    echo "2. System R Locale (Usually handled by R.app):"
+    echo "   - R.app typically handles locale settings well. If you encounter warnings, consult R documentation."
+    
+elif [ "$OS_TYPE" == "linux" ]; then
+    echo "1. Build Essentials (For compiling R packages from source):"
+    echo "   - Ensure you have build tools installed. For Debian/Ubuntu: 'sudo apt-get install build-essential'"
+    echo "   - For Fedora/RHEL: 'sudo yum groupinstall \"Development Tools\"'"
+    echo "2. System R Locale (Usually configured correctly):"
+    echo "   - If you encounter locale warnings, consult your distribution's documentation on R locale setup."
+fi
 echo ""
-echo "Failure to complete this manual step can cause R package installations to fail."
-echo "========================================================================"
-echo ""
-echo "========================================================================"
-echo "INFO: This script will attempt to install R packages using your system's R."
-echo "CRITICAL: For R, if packages need compilation:"
-echo "  - On Windows: Ensure Rtools (e.g., Rtools42 for R 4.2.x) is correctly installed AND its bin directories"
-echo "    (e.g., F:/rtools42/mingw64/bin, F:/rtools42/usr/bin, or your Rtools path) are in your SYSTEM PATH and accessible by R."
-echo "The R script part will try to show if make/gcc/g++ are found by R."
+echo "Failure to complete these manual steps can cause R package installations to fail."
 echo "========================================================================"
 echo ""
 
@@ -62,10 +139,12 @@ if ! command -v Rscript &> /dev/null
 then
     echo "Rscript command not found in PATH even after attempting to add user-specified path."
     echo "Please perform the following checks:"
-    echo "1. Verify R is installed on your system."
-    echo "2. Ensure R's 'bin' directory (e.g., C:\\Program Files\\R\\R-x.x.x\\bin) is added to your Windows SYSTEM PATH."
-    echo "3. Restart your Git Bash terminal after modifying system PATH."
-    echo "4. Double-check the 'USER_R_BIN_PATH' variable at the top of this script to ensure it accurately points to your R's bin directory (using Git Bash path format, e.g., /c/Program Files/R/R-x.x.x/bin)."
+    echo "1. Verify R 4.2.3 is installed on your system."
+    echo "2. Ensure R's 'bin' directory (e.g., C:\\Program Files\\R\\R-x.x.x\\bin or /Library/Frameworks/R.framework/Versions/R-x.x.x/Resources/bin) "
+    echo "   is added to your system's PATH."
+    echo "3. Restart your terminal after modifying system PATH."
+    echo "4. Double-check the 'R 4.2.3 bin directory path' input you provided earlier, and ensure it accurately points to your R's bin directory "
+    echo "   (using Git Bash path format for Windows, or standard Unix path for macOS/Linux)."
     exit 1
 fi
 echo "Found Rscript: $(command -v Rscript)"
@@ -90,7 +169,131 @@ main_try_catch_result <- tryCatch({
     cat("Sys.which('gfortran'):", Sys.which('gfortran'), "\\n")
     cat("R_HOME:", R.home(), "\\n")
 
-    user_lib_path <- .libPaths()[1]
+    # Define package versions to fix for stable installations.
+    package_versions <- list(
+        "spatstat.utils" = "3.1.4",
+        "BiocManager" = "1.30.22",
+        "GenomeInfoDbData" = "1.2.9",
+        "GenomeInfoDb" = "1.34.9",
+        "AnnotationDbi" = "1.60.2",
+        "org.Hs.eg.db" = "3.16.0",
+        "org.Mm.eg.db" = "3.16.0",
+        "fastmap" = "1.2.0",
+        "rlang" = "1.1.6",
+        "cli" = "3.6.5",
+        "htmltools" = "0.5.8.1",
+        "digest" = "0.6.35",
+        "Rcpp" = "1.0.12",
+        "reticulate" = "1.36.1",
+        "igraph" = "2.0.3",
+        "openssl" = "2.1.2",
+        "curl" = "5.2.1",
+        "xml2" = "1.3.6",
+        "V8" = "4.4.2",
+        "sf" = "1.0.16",
+        "s2" = "1.1.6",
+        "units" = "0.8.5",
+        "future" = "1.33.2",
+        "promises" = "1.3.0",
+        "later" = "1.3.2",
+        "httpuv" = "1.6.15",
+        "usethis" = "2.2.3",
+        "pkgload" = "1.3.4",
+        "pkgbuild" = "1.4.4",
+        "sessioninfo" = "1.2.2",
+        "desc" = "1.4.3",
+        "purrr" = "1.0.2",
+        "jsonlite" = "1.8.8",
+        "httr" = "1.4.7",
+        "remotes" = "2.5.0",
+        "dplyr" = "1.1.4",
+        "ggplot2" = "3.5.1",
+        "Matrix" = "1.6.5",
+        "tibble" = "3.2.1",
+        "tidyr" = "1.3.1",
+        "viridis" = "0.6.5",
+        "reshape2" = "1.4.4",
+        "pheatmap" = "1.0.12",
+        "cowplot" = "1.1.3",
+        "ggpubr" = "0.6.0",
+        "patchwork" = "1.2.0",
+        "stringr" = "1.5.1",
+        "car" = "3.1.2",
+        "ggcorrplot" = "0.1.4.1",
+        "homologene" = "1.4.68.19.3.27",
+        "TOAST" = "1.12.0",
+        "spatstat.geom" = "3.2.9",
+        "spatstat.random" = "3.2.3",
+        "spatstat.explore" = "3.2.7",
+        "spatstat.model" = "3.2.11",
+        "devtools" = "2.4.5",
+        "R.utils" = "2.12.3",
+        "ggunchull" = "1.0.1",
+        "Seurat" = "5.0.3",
+        "matrixStats" = "1.0.0",
+        "fitdistrplus" = "1.1.11",
+        "ggridges" = "0.5.6",
+        "ica" = "1.0.3",
+        "irlba" = "2.3.5.1",
+        "lmtest" = "0.9.40",
+        "pbapply" = "1.7.2",
+        "plotly" = "4.10.4",
+        "RANN" = "2.6.1",
+        "RcppAnnoy" = "0.0.22",
+        "ROCR" = "1.0.11",
+        "Rtsne" = "0.17",
+        "scattermore" = "1.2",
+        "uwot" = "0.2.2",
+        "RcppProgress" = "0.4.2",
+        "miniUI" = "0.1.1.1",
+        "htmlwidgets" = "1.6.4",
+        "lazyeval" = "0.2.2",
+        "gplots" = "3.1.3.1",
+        "ape" = "5.8",
+        "ggplotify" = "0.1.2",
+        "assertthat" = "0.2.1",
+        "leiden" = "0.4.3.1",
+        "sctransform" = "0.4.1",
+        "SeuratObject" = "5.1.0",
+        "harmony" = "1.2.0",
+        "celldex" = "1.8.0",
+        "decoupleR" = "2.4.0",
+        "ensembldb" = "2.22.0",
+        "msigdbr" = "24.1.0",
+        "scater" = "1.26.1",
+        "scDblFinder" = "1.12.0",
+        "SCpubr" = "2.0.2",
+        "SingleCellExperiment" = "1.20.1",
+        "SingleR" = "2.0.0",
+        "SpatialExperiment" = "1.8.1",
+        "scran" = "1.26.2",
+        "UCell" = "2.2.0",
+        "OmnipathR" = "3.6.0",
+        "scRNAtoolVis" = "0.1.0",
+        "SeuratExtend" = "1.2.3",
+        "SeuratDisk" = "0.0.0.9021",
+        "MuSiC" = "1.0.0",
+        "CARD" = "1.1",
+        "liana" = "0.1.14",
+        "basilisk" = NULL,  # Adjusted to match Bioconductor 3.16 default
+        "basilisk.utils" = "1.21.2"
+    )
+
+    # Determine a writable library path for package installation
+    user_lib_path <- Sys.getenv("R_LIBS_USER", unset = NA)
+    if (is.na(user_lib_path) || !file.exists(user_lib_path) || !file.access(user_lib_path, 2) == 0) {
+        temp_lib_path <- .libPaths()[1]
+        if (!file.exists(temp_lib_path) || !file.access(temp_lib_path, 2) == 0) {
+            if (.Platform\$OS.type == "windows") {
+                temp_lib_path <- file.path(Sys.getenv("USERPROFILE"), "Documents", "R", "win-library", paste0(R.version\$major, ".", R.version\$minor))
+            } else {
+                temp_lib_path <- file.path(Sys.getenv("HOME"), "R", paste0(R.version\$major, ".", R.version\$minor))
+            }
+            cat("Default R library path not writable or missing. Attempting to use/create user-specific library: ", temp_lib_path, "\\n")
+        }
+        user_lib_path <- temp_lib_path
+    }
+
     cat("Attempting to install packages into library:", user_lib_path, "\\n")
     if (!dir.exists(user_lib_path)) {
       cat("Target library path does not exist:", user_lib_path, "\\n")
@@ -98,73 +301,187 @@ main_try_catch_result <- tryCatch({
                error = function(e) message(paste0("Failed to create library path: ", user_lib_path, ". Error: ", e$message)),
                warning = function(w) message(paste0("Warning creating library path: ", user_lib_path, ". Warning: ", w$message)))
     }
+    .libPaths(c(user_lib_path, .libPaths()))
+
     cat("R Library Paths (.libPaths()):\\n")
     print(.libPaths())
     cat("-----------------------------\\n")
 
-    if (.Platform\$OS.type == "windows") {
-      try(Sys.setlocale("LC_CTYPE", "English_United States.1252"), silent = TRUE)
-      try(Sys.setlocale("LC_COLLATE", "English_United States.1252"), silent = TRUE)
-    }
-    
     # Helper function to install a package only if it's not already installed
-    install_if_missing <- function(pkg_name, lib_path, pkg_type = "binary") {
-        if (!requireNamespace(pkg_name, quietly = TRUE, lib.loc = lib_path)) {
-            cat("Package '", pkg_name, "' not found. Attempting installation...\\n")
-            install.packages(pkg_name, lib = lib_path, type = pkg_type, Ncpus = max(1, parallel::detectCores() - 1))
-        } else {
-            cat("Package '", pkg_name, "' is already installed. Skipping.\\n")
+    install_if_missing <- function(pkg_name, lib_path, pkg_type = NULL, version = NULL) {
+        if (pkg_name %in% names(package_versions)) {
+            fixed_version <- package_versions[[pkg_name]]
+            if (!is.null(fixed_version)) {
+                version <- fixed_version
+                cat(paste0("  (Fixed version for '", pkg_name, "': ", version, ")\\n"))
+            }
         }
+
+        current_version <- tryCatch(as.character(packageVersion(pkg_name, lib.loc = lib_path)), error = function(e) NA)
+        
+        if (!is.na(current_version) && (is.null(version) || current_version == version)) {
+            cat("Package '", pkg_name, "' (version ", current_version, ") is already installed and matches target. Skipping.\\n")
+            return(TRUE)
+        }
+
+        cat("Package '", pkg_name, "' not found or version mismatch. Attempting installation...\\n")
+        if (!is.na(current_version)) {
+            cat(paste0("  (Currently installed version: ", current_version, ", Target version: ", ifelse(is.null(version), "latest", version), ")\\n"))
+        }
+        
+        current_pkg_type <- pkg_type
+        if (is.null(current_pkg_type)) {
+            if (.Platform\$OS.type == "windows") {
+                current_pkg_type <- "binary"
+            } else {
+                current_pkg_type <- "source"
+            }
+        }
+
+        install_success <- FALSE
+        if (!is.null(version) && pkg_name != "remotes" && requireNamespace("remotes", quietly = TRUE, lib.loc = lib_path)) {
+            cat(paste0("  Attempting to install specific version '", version, "' of '", pkg_name, "' using remotes::install_version.\\n"))
+            tryCatch({
+                if (!isNamespaceLoaded("remotes")) {
+                  library(remotes, lib.loc = lib_path)
+                }
+                remotes::install_version(pkg_name, version = version, Ncpus = max(1, parallel::detectCores() - 1), lib = lib_path, upgrade = "never", force = TRUE)
+                if (requireNamespace(pkg_name, quietly = TRUE, lib.loc = lib_path) && as.character(packageVersion(pkg_name, lib.loc = lib_path)) == version) {
+                    cat("Successfully installed '", pkg_name, "' version ", version, ".\\n")
+                    install_success <- TRUE
+                } else {
+                    cat("WARNING: Installed '", pkg_name, "' but version mismatch or failed to load after install_version.\\n")
+                }
+            }, error = function(e) {
+                message(paste0("ERROR installing '", pkg_name, "' v", version, " with remotes::install_version: ", conditionMessage(e)))
+            })
+        }
+
+        if (!install_success) {
+            cat(paste0("  Attempting generic install.packages for '", pkg_name, "' (type=", current_pkg_type, ").\\n"))
+            install_args <- list(pkgs = pkg_name, lib = lib_path, Ncpus = max(1, parallel::detectCores() - 1))
+            if (!is.null(current_pkg_type)) {
+                install_args\$type <- current_pkg_type
+            }
+            
+            tryCatch({
+                do.call(install.packages, install_args)
+                if (requireNamespace(pkg_name, quietly = TRUE, lib.loc = lib_path)) {
+                    cat("Successfully installed (generic) and loaded namespace for package:", pkg_name, "\\n")
+                    install_success <- TRUE
+                } else {
+                    cat("WARNING: Package '", pkg_name, "' still not found after generic installation attempt.\\n")
+                }
+            }, error = function(e) {
+                message(paste0("ERROR installing '", pkg_name, "' (generic install): ", conditionMessage(e)))
+                if (.Platform\$OS.type == "windows" && current_pkg_type == "binary") {
+                    message(paste0("Retrying '", pkg_name, "' from source on Windows.\\n"))
+                    tryCatch({
+                        install_args\$type <- "source"
+                        do.call(install.packages, install_args)
+                        if (requireNamespace(pkg_name, quietly = TRUE, lib.loc = lib_path)) {
+                            cat("Successfully installed (source fallback) and loaded namespace for package:", pkg_name, "\\n")
+                            install_success <- TRUE
+                        } else {
+                            cat("WARNING: Package '", pkg_name, "' still not found after source fallback installation attempt.\\n")
+                        }
+                    }, error = function(e_src) {
+                        message(paste0("ERROR installing '", pkg_name, "' (source fallback) on Windows: ", conditionMessage(e_src)))
+                    })
+                }
+            })
+        }
+        return(install_success)
     }
 
-    install_and_check_bioc <- function(pkg_name, lib_path) {
-      if (requireNamespace(pkg_name, quietly = TRUE, lib.loc = lib_path)) {
-          cat("Bioconductor package '", pkg_name, "' is already installed. Skipping.\\n")
-          return(TRUE)
-      }
-      cat("Attempting to install Bioconductor package:", pkg_name, "into", lib_path, "\\n")
-      installed_ok <- FALSE
-      tryCatch({ # Try binary/default first
-        BiocManager::install(pkg_name, lib = lib_path, Ncpus = max(1, parallel::detectCores() - 1), ask = FALSE, update = FALSE, force = TRUE, quiet = FALSE, verbose = TRUE)
-        if (requireNamespace(pkg_name, quietly = TRUE, lib.loc = lib_path)) {
-          cat("Successfully installed (binary/default) and loaded namespace for package:", pkg_name, "\\n")
-          installed_ok <- TRUE
-        } else {
-          cat("Failed to load namespace for", pkg_name, "after default BiocManager install attempt. Will try source.\\n")
+    install_and_check_bioc <- function(pkg_name, lib_path, version = NULL) {
+        if (pkg_name %in% names(package_versions)) {
+            fixed_pkg_version_from_list <- package_versions[[pkg_name]]
+            if (!is.null(fixed_pkg_version_from_list)) {
+                cat(paste0("  (Fixed package version for '", pkg_name, "': ", fixed_pkg_version_from_list, ") will be checked for skipping.\\n"))
+            }
         }
-      }, error = function(e) {
-        cat("ERROR during default BiocManager::install for package:", pkg_name, "\\nError: ", conditionMessage(e), "\\nWill try source.\\n")
-      })
 
-      if (!installed_ok) { # If binary/default failed, try source
-        cat("Attempting to install Bioconductor package:", pkg_name, "from SOURCE into", lib_path, "\\n")
-        tryCatch({
-          BiocManager::install(pkg_name, lib = lib_path, type = "source", Ncpus = max(1, parallel::detectCores() - 1), ask = FALSE, update = FALSE, force = TRUE, quiet = FALSE, verbose = TRUE)
-          if (requireNamespace(pkg_name, quietly = TRUE, lib.loc = lib_path)) {
-            cat("Successfully installed (source) and loaded namespace for package:", pkg_name, "\\n")
-            installed_ok <- TRUE
-          } else {
-            cat("ERROR: Failed to load namespace for package:", pkg_name, "after attempting SOURCE installation.\\n")
-          }
-        }, error = function(e_src) {
-          cat("ERROR during SOURCE BiocManager::install for package:", pkg_name, "\\nError: ", conditionMessage(e_src), "\\n")
+        current_version <- tryCatch(as.character(packageVersion(pkg_name, lib.loc = lib_path)), error = function(e) NA)
+        if (!is.na(current_version) && (is.null(fixed_pkg_version_from_list) || current_version == fixed_pkg_version_from_list)) {
+            cat("Bioconductor package '", pkg_name, "' (version ", current_version, ") is already installed and matches target. Skipping.\\n")
+            return(TRUE)
+        }
+        cat("Attempting to install Bioconductor package:", pkg_name, "into", lib_path, ".\\n")
+        if (!is.na(current_version)) {
+            cat(paste0("  (Currently installed version: ", current_version, ", Target version: ", ifelse(is.null(fixed_pkg_version_from_list), "latest for Bioc release", fixed_pkg_version_from_list), ")\\n"))
+        }
+
+        installed_ok <- FALSE
+        
+        tryCatch({ 
+            BiocManager::install(pkg_name, lib = lib_path, Ncpus = max(1, parallel::detectCores() - 1), ask = FALSE, update = FALSE, force = TRUE, quiet = FALSE, verbose = TRUE)
+            installed_version_after_attempt <- tryCatch(as.character(packageVersion(pkg_name, lib.loc = lib_path)), error = function(e) NA)
+            if (!is.na(installed_version_after_attempt) && (is.null(fixed_pkg_version_from_list) || installed_version_after_attempt == fixed_pkg_version_from_list)) {
+                cat("Successfully installed Bioconductor package:", pkg_name, " (version ", installed_version_after_attempt, ").\\n")
+                installed_ok <- TRUE
+            } else {
+                cat("Failed to install Bioconductor package:", pkg_name, "or version mismatch after install attempt. Installed: ", ifelse(is.na(installed_version_after_attempt), "None", installed_version_after_attempt), ". Targeted fixed: ", ifelse(is.null(fixed_pkg_version_from_list), "None", fixed_pkg_version_from_list), ".\\n")
+            }
+        }, error = function(e) {
+            cat("ERROR during default BiocManager::install for package:", pkg_name, ". Error: ", conditionMessage(e), ".\\n")
         })
-      }
-      return(installed_ok)
+
+        return(installed_ok)
     }
 
     options(repos = c(CRAN = "https://cloud.r-project.org/"))
     cat("CRAN mirror set to https://cloud.r-project.org/\\n")
 
-    # --- Pre-emptive spatstat.utils handling ---
+    # Ensure Matrix is installed with the correct version first
+    if ("Matrix" %in% names(package_versions)) {
+        fixed_version <- package_versions[["Matrix"]]
+        cat("Ensuring 'Matrix' v", fixed_version, " is installed...\\n")
+        install_if_missing("Matrix", lib_path = user_lib_path, version = fixed_version)
+    }
+
+    # Special handling for matrixStats
+    pkg_name_matrixStats <- "matrixStats"
+    target_version_matrixStats <- package_versions[[pkg_name_matrixStats]]
+    cat(paste0("Attempting to ensure '", pkg_name_matrixStats, "' v", target_version_matrixStats, " is cleanly installed...\\n"))
+
+    if (requireNamespace(pkg_name_matrixStats, quietly = TRUE, lib.loc = user_lib_path)) {
+        cat(paste0("Removing existing '", pkg_name_matrixStats, "' to ensure clean reinstallation...\\n"))
+        tryCatch({
+            remove.packages(pkg_name_matrixStats, lib = user_lib_path)
+            cat(paste0("Successfully removed existing '", pkg_name_matrixStats, "'.\\n"))
+        }, error = function(e) {
+            cat(paste0("WARNING: Could not remove existing '", pkg_name_matrixStats, "'. Error: ", conditionMessage(e), ". This might lead to 'cannot rename file' errors or other installation failures if the package is in use.\\n"))
+            cat("Please ensure no other R sessions or processes are running that might lock package files (e.g., RStudio, other R consoles, background R processes) and try again.\\n")
+        })
+    } else {
+        cat(paste0("No existing '", pkg_name_matrixStats, "' package found for removal.\\n"))
+    }
+
+    tryCatch({
+        remotes::install_version(pkg_name_matrixStats, version = target_version_matrixStats, 
+                                 Ncpus = max(1, parallel::detectCores() - 1), lib = user_lib_path, 
+                                 upgrade = "never", force = TRUE)
+        if (requireNamespace(pkg_name_matrixStats, quietly = TRUE, lib.loc = user_lib_path) && 
+            as.character(packageVersion(pkg_name_matrixStats, lib.loc = user_lib_path)) == target_version_matrixStats) {
+            cat(paste0("Successfully installed '", pkg_name_matrixStats, "' v", target_version_matrixStats, ".\\n"))
+        } else {
+            cat(paste0("ERROR: Failed to install '", pkg_name_matrixStats, "' v", target_version_matrixStats, " or correct version not found after installation attempt.\\n"))
+            message("This is a critical dependency. Please check the R log for specific errors. Often, ensuring no other R sessions are running and retrying solves this.\\n")
+        }
+    }, error = function(e) {
+        cat(paste0("CRITICAL ERROR during installation of '", pkg_name_matrixStats, "' v", target_version_matrixStats, ": ", conditionMessage(e), "\\n"))
+        message("This package is a common source of installation issues. Please ensure Rtools (Windows) or build essentials (macOS/Linux) are correctly configured and accessible by R, and that no R sessions are locking files.\\n")
+    })
+
+    # Pre-emptive spatstat.utils handling
     cat("--- Pre-emptive spatstat.utils handling ---\\n")
-    install_if_missing("spatstat.utils", lib_path = user_lib_path, pkg_type = "source")
+    install_if_missing("spatstat.utils", lib_path = user_lib_path, pkg_type = "source", version = package_versions[["spatstat.utils"]])
     cat("---------------------------------------------\\n")
 
-    install_if_missing("BiocManager", lib_path = user_lib_path)
+    install_if_missing("BiocManager", lib_path = user_lib_path, version = package_versions[["BiocManager"]])
     library(BiocManager, lib.loc = user_lib_path)
 
-    # --- Bioconductor Version Mapping ---
     r_version_major_minor <- paste0(R.version\$major, ".", substr(R.version\$minor, 1, 1))
     bioc_version_map <- list("4.4" = "3.19", "4.3" = "3.18", "4.2" = "3.16", "4.1" = "3.14", "4.0" = "3.12")
     BIOC_VERSION_FOR_R <- bioc_version_map[[r_version_major_minor]]
@@ -189,13 +506,13 @@ main_try_catch_result <- tryCatch({
     cat("Installing core Bioconductor annotation packages...\\n")
     core_bioc_annotation_pkgs <- c("GenomeInfoDbData", "GenomeInfoDb", "AnnotationDbi", "org.Hs.eg.db", "org.Mm.eg.db")
     for (pkg in core_bioc_annotation_pkgs) {
-        install_and_check_bioc(pkg, lib_path = user_lib_path)
+        install_and_check_bioc(pkg, lib_path = user_lib_path, version = package_versions[[pkg]])
     }
 
     cat("Installing critical CRAN packages (fastmap, rlang, cli, htmltools, digest)...\\n")
     critical_cran_updates <- c("fastmap", "rlang", "cli", "htmltools", "digest")
     for (pkg in critical_cran_updates) {
-        install_if_missing(pkg, lib_path = user_lib_path)
+        install_if_missing(pkg, lib_path = user_lib_path, version = package_versions[[pkg]])
     }
     
     cat("Installing other core CRAN packages and devtools dependencies...\\n")
@@ -203,26 +520,24 @@ main_try_catch_result <- tryCatch({
         "Rcpp", "reticulate", "igraph", "openssl", "curl", "xml2", "V8",
         "sf", "s2", "units", "future", "promises", "later", "httpuv",
         "usethis", "pkgload", "pkgbuild", "sessioninfo", "desc", "purrr", "jsonlite", "httr", "remotes",
-        "dplyr", "ggplot2", "Matrix", "tibble", "tidyr", "viridis", "reshape2", "pheatmap", "cowplot", "ggpubr", "patchwork",
+        "dplyr", "ggplot2", "tibble", "tidyr", "viridis", "reshape2", "pheatmap", "cowplot", "ggpubr", "patchwork",
         "stringr", "car", "ggcorrplot", "homologene"
     )
     for (pkg in cran_core_and_pre_deps_binary) {
-        install_if_missing(pkg, lib_path = user_lib_path)
+        install_if_missing(pkg, lib_path = user_lib_path, version = package_versions[[pkg]])
     }
     
-    install_if_missing("presto", lib_path = user_lib_path, pkg_type = "source")
-    
-    install_and_check_bioc("TOAST", lib_path = user_lib_path)
+    install_and_check_bioc("TOAST", lib_path = user_lib_path, version = package_versions[["TOAST"]])
 
-    cat("Attempting to install other spatstat family packages (geom, random, core) from CRAN...\\n")
-    spatstat_other_pkgs <- c("spatstat.geom", "spatstat.random", "spatstat.core")
+    cat("Attempting to install other spatstat family packages (geom, random, explore, model) from CRAN...\\n")
+    spatstat_other_pkgs <- c("spatstat.geom", "spatstat.random", "spatstat.explore", "spatstat.model")
     for (pkg in spatstat_other_pkgs) {
-        install_if_missing(pkg, lib_path = user_lib_path)
+        install_if_missing(pkg, lib_path = user_lib_path, version = package_versions[[pkg]])
     }
 
-    install_if_missing("devtools", lib_path = user_lib_path)
+    install_if_missing("devtools", lib_path = user_lib_path, version = package_versions[["devtools"]])
     library(devtools, lib.loc = user_lib_path)
-    install_if_missing("remotes", lib_path = user_lib_path)
+    install_if_missing("remotes", lib_path = user_lib_path, version = package_versions[["remotes"]])
     library(remotes, lib.loc = user_lib_path)
 
     cat("Installing specific CRAN/GitHub dependencies...\\n")
@@ -232,36 +547,28 @@ main_try_catch_result <- tryCatch({
              error = function(e) message(paste0("GitHub install failed for sajuukLyu/ggunchull: ", conditionMessage(e))))
 
     cat("Installing Seurat from CRAN and its other dependencies explicitly...\\n")
-    install_if_missing("Seurat", lib_path = user_lib_path)
+    install_if_missing("Seurat", lib_path = user_lib_path, version = package_versions[["Seurat"]])
     
-    cat("Installing specific version of matrixStats (v 1.0.0) using remotes...\\n")
-    tryCatch({
-        remotes::install_version("matrixStats", version = "1.0.0", Ncpus = max(1, parallel::detectCores() - 1), lib = user_lib_path, upgrade = "never", force = TRUE)
-        cat("Successfully attempted to install matrixStats v 1.0.0.\\n")
-    }, error = function(e) {
-        cat("ERROR: Failed to install matrixStats v 1.0.0 using remotes::install_version. Error: ", conditionMessage(e), "\\n")
-    })
-
     seurat_known_deps_cran <- c(
         'fitdistrplus', 'ggridges', 'ica', 'irlba', 'lmtest', 'pbapply', 'plotly', 'RANN',
         'RcppAnnoy', 'ROCR', 'Rtsne', 'scattermore',
         'uwot', 'RcppProgress', 'miniUI', 'htmlwidgets', 'lazyeval', 'gplots', 'ape', 'ggplotify', 'assertthat'
     )
     for (pkg in seurat_known_deps_cran) {
-        install_if_missing(pkg, lib_path = user_lib_path)
+        install_if_missing(pkg, lib_path = user_lib_path, version = package_versions[[pkg]])
     }
 
     seurat_known_deps_bioc <- c('leiden', 'sctransform', 'SeuratObject')
     cat("Installing Bioconductor dependencies for Seurat...\\n")
     for (pkg in seurat_known_deps_bioc) {
-        install_and_check_bioc(pkg, lib_path = user_lib_path)
+        install_and_check_bioc(pkg, lib_path = user_lib_path, version = package_versions[[pkg]])
     }
 
     cat("Installing Harmony from CRAN...\\n")
-    install_if_missing("harmony", lib_path = user_lib_path)
+    install_if_missing("harmony", lib_path = user_lib_path, version = package_versions[["harmony"]])
 
     cat("--- Ensuring celldex is properly installed (attempting remove and reinstall) ---\\n")
-    install_and_check_bioc("celldex", lib_path = user_lib_path)
+    install_and_check_bioc("celldex", lib_path = user_lib_path, version = package_versions[["celldex"]])
     cat("--- Finished celldex reinstallation attempt ---\\n")
 
     cat("Installing remaining common Bioconductor packages...\\n")
@@ -271,19 +578,20 @@ main_try_catch_result <- tryCatch({
         "SingleCellExperiment", "SingleR", "SpatialExperiment", "scran", "UCell"
     )
     for (pkg in bioc_packages_remaining) {
-        install_and_check_bioc(pkg, lib_path = user_lib_path)
+        install_and_check_bioc(pkg, lib_path = user_lib_path, version = package_versions[[pkg]])
     }
 
-    install_and_check_bioc('OmnipathR', lib_path = user_lib_path)
+    install_and_check_bioc('OmnipathR', lib_path = user_lib_path, version = package_versions[["OmnipathR"]])
 
     cat("Installing problematic CRAN packages (yulab.utils, ggfun, scatterpie) with fallbacks...\\n")
     problematic_cran_packages <- c("yulab.utils", "ggfun", "scatterpie")
     for (pkg in problematic_cran_packages) {
         if (!requireNamespace(pkg, quietly = TRUE, lib.loc = user_lib_path)) {
-            message(paste0("Attempting to install ", pkg, " from CRAN (binary if available) into ", user_lib_path, "..."))
-            install.packages(pkg, Ncpus = max(1, parallel::detectCores() - 1), type = "binary", lib = user_lib_path)
+            message(paste0("Attempting to install ", pkg, " from CRAN (binary if available) into ", user_lib_path, "...\\n"))
+            install_if_missing(pkg, lib_path = user_lib_path, version = package_versions[[pkg]])
+            
             if (!requireNamespace(pkg, quietly = TRUE, lib.loc = user_lib_path)) {
-                message(paste0("CRAN binary installation of ", pkg, " failed or package still not found. Attempting to install from GitHub..."))
+                message(paste0("CRAN installation of ", pkg, " failed or package still not found. Attempting to install from GitHub...\\n"))
                 if (pkg == "yulab.utils") {
                     tryCatch(remotes::install_github("YuLab-SMU/yulab.utils", upgrade = "never", build_vignettes = FALSE, force = TRUE, lib = user_lib_path), error = function(e) message(paste0("GitHub install failed for yulab.utils: ", conditionMessage(e))))
                 } else if (pkg == "ggfun") {
@@ -293,7 +601,7 @@ main_try_catch_result <- tryCatch({
                 }
             }
         } else {
-             cat("Package '", pkg, "' is already installed. Skipping.\\n")
+                cat("Package '", pkg, "' is already installed. Skipping.\\n")
         }
     }
 
@@ -317,11 +625,42 @@ main_try_catch_result <- tryCatch({
 
     tryCatch(devtools::install_github("YingMa0107/CARD", upgrade = "never", build_vignettes = FALSE, force = TRUE, lib = user_lib_path),
              error = function(e) message(paste0("GitHub install failed for CARD: ", conditionMessage(e))))
-   
+    
     cat("Installing liana using remotes::install...\\n")
+    cat("Attempting to ensure 'basilisk' is cleanly installed...\\n")
+
+    if (requireNamespace("basilisk", quietly = TRUE, lib.loc = user_lib_path)) {
+      cat("Attempting to remove existing 'basilisk' package...\\n")
+      tryCatch(
+        remove.packages("basilisk", lib = user_lib_path),
+        error = function(e) message(paste0("WARNING: Failed to remove 'basilisk' during pre-installation cleanup. This might indicate file locks. Error: ", conditionMessage(e), "\\n")),
+        warning = function(w) message(paste0("WARNING: Problems encountered removing 'basilisk'. Warning: ", conditionMessage(w), "\\n"))
+      )
+    }
+    if (requireNamespace("basilisk.utils", quietly = TRUE, lib.loc = user_lib_path)) {
+        cat("Attempting to remove existing 'basilisk.utils' package...\\n")
+        tryCatch(
+            remove.packages("basilisk.utils", lib = user_lib_path),
+            error = function(e) message(paste0("WARNING: Failed to remove 'basilisk.utils' during pre-installation cleanup. Error: ", conditionMessage(e), "\\n"))
+        )
+    }
+      
+    if (requireNamespace("basilisk", quietly = TRUE, lib.loc = user_lib_path)) {
+      cat("WARNING: 'basilisk' still detected after removal attempt. Please ensure no other R sessions are using it, or try restarting R and rerunning the script.\\n")
+    } else {
+      cat("'basilisk' successfully removed (if it existed) or not found.\\n")
+    }
+
     install_and_check_bioc("basilisk", lib_path = user_lib_path)
+    if (requireNamespace("basilisk", quietly = TRUE, TRUE)) {
+      cat("Successfully ensured 'basilisk' is installed and its namespace is available.\\n")
+    } else {
+      cat("ERROR: 'basilisk' did not install correctly or could not be loaded. 'liana' installation may fail.\\n")
+      message("Please check the R log for 'basilisk' installation errors. You might need to manually inspect its dependencies or try installing it separately.\\n")
+    }
+    
     tryCatch(remotes::install_github('saezlab/liana', upgrade = "never", build_vignettes = FALSE, force = TRUE, lib = user_lib_path),
-             error = function(e) message(paste0("GitHub install failed for saezlab/liana: ", conditionMessage(e))))
+             error = function(e) message(paste0("GitHub install failed for saezlab/liana. This might be due to 'basilisk' issues. Error: ", conditionMessage(e))))
 
     cat("R package installation script finished.\\n")
     return(TRUE)
@@ -345,8 +684,80 @@ main_try_catch_result <- tryCatch({
 
 if (is.null(main_try_catch_result) || inherits(main_try_catch_result, "error")) {
     cat("R script execution failed at a high level or was explicitly quit with status 1.\\n")
-    if(exists("quit")) quit(status = 1, save = "no") 
+    if(exists("quit")) quit(status = 1, save = "no")    
 }
+
+# --- Section to save installed package versions to CSV ---
+cat("\n========================================================================\n")
+cat("SAVING INSTALLED R PACKAGE VERSIONS TO CSV (For Reference / Pinning)\n")
+cat("========================================================================\n")
+
+output_csv_path <- "F:/R_PROJECT/impact_sc/version.csv" 
+output_dir <- dirname(output_csv_path)
+
+target_packages <- c(
+    "spatstat.utils", "BiocManager",
+    "GenomeInfoDbData", "GenomeInfoDb", "AnnotationDbi", "org.Hs.eg.db", "org.Mm.eg.db",
+    "fastmap", "rlang", "cli", "htmltools", "digest",
+    "Rcpp", "reticulate", "igraph", "openssl", "curl", "xml2", "V8",
+    "sf", "s2", "units", "future", "promises", "later", "httpuv",
+    "usethis", "pkgload", "pkgbuild", "sessioninfo", "desc", "purrr", "jsonlite", "httr", "remotes",
+    "dplyr", "ggplot2", "Matrix", "tibble", "tidyr", "viridis", "reshape2", "pheatmap", "cowplot", "ggpubr", "patchwork",
+    "stringr", "car", "ggcorrplot", "homologene",
+    "TOAST",
+    "spatstat.geom", "spatstat.random", "spatstat.explore", "spatstat.model",
+    "devtools",
+    "R.utils", "ggunchull",
+    "Seurat", "matrixStats",
+    "leiden", "sctransform", "SeuratObject",
+    "harmony", "celldex",
+    "decoupleR", "ensembldb", "msigdbr", "scater",
+    "scDblFinder", "SCpubr",
+    "SingleCellExperiment", "SingleR", "SpatialExperiment", "scran", "UCell",
+    "OmnipathR",
+    "yulab.utils", "ggfun", "scatterpie",
+    "scRNAtoolVis", "SeuratExtend", "SeuratDisk", "MuSiC", "CARD", "liana",
+    "basilisk", "basilisk.utils"
+)
+
+installed_pkg_versions <- data.frame(Package = character(), Version = character(), stringsAsFactors = FALSE)
+
+for (pkg_name in unique(target_packages)) {
+    pkg_version <- tryCatch(
+        as.character(packageVersion(pkg_name, lib.loc = user_lib_path)),
+        error = function(e) NA
+    )
+    if (!is.na(pkg_version)) {
+        installed_pkg_versions <- rbind(installed_pkg_versions, data.frame(Package = pkg_name, Version = pkg_version, stringsAsFactors = FALSE))
+    }
+}
+
+installed_pkg_versions <- installed_pkg_versions[order(installed_pkg_versions$Package), ]
+
+df_pkgs_to_save <- as.data.frame(installed_pkg_versions, stringsAsFactors = FALSE)
+colnames(df_pkgs_to_save) <- c("Package", "Version")
+
+if (!dir.exists(output_dir)) {
+    message(paste0("Creating directory for CSV: ", output_dir, "\\n"))
+    tryCatch(dir.create(output_dir, recursive = TRUE, showWarnings = TRUE),
+             error = function(e) message(paste0("Failed to create directory: ", output_dir, ". Error: ", e$message, "\\n")))
+}
+
+tryCatch({
+    write.csv(df_pkgs_to_save, file = output_csv_path, row.names = FALSE)
+    cat(paste0("Successfully saved package versions to: ", output_csv_path, "\\n"))
+}, error = function(e) {
+    cat(paste0("ERROR: Failed to save package versions to CSV. Error: ", conditionMessage(e), "\\n"))
+    cat(paste0("Please check write permissions for the directory: ", output_dir, " and ensure the path is valid.\\n"))
+})
+
+cat("------------------------------------------------------------------------\n")
+cat("This CSV contains versions of packages targeted by this script.\n")
+cat("To fix specific package versions for future installations, copy the desired\n")
+cat("version numbers from the CSV and add 'version=\"X.Y.Z\"' to the corresponding\n")
+cat("'install_if_missing' or 'install_and_check_bioc' calls in this script.\n")
+cat("Example: install_if_missing(\"dplyr\", lib_path = user_lib_path, version = \"1.0.0\")\n")
+cat("========================================================================\n")
 
 EOF
 
@@ -357,24 +768,22 @@ echo "Full R installation log will be saved to: $(pwd)/$R_INSTALL_LOG"
 Rscript "$INSTALL_R_SCRIPT" > "$R_INSTALL_LOG" 2>&1
 R_EXIT_CODE=$?
 
-# Report completion status based on user request.
 echo "R package installation run is complete."
 if [ $R_EXIT_CODE -ne 0 ]; then
-    echo "The R package installation script completed successfully."
-    echo "Reported a non-zero exit code may indicate issues with one or more packages."
+    echo "The R package installation script reported a non-zero exit code: $R_EXIT_CODE."
+    echo "This indicates issues with one or more packages."
     echo "Please check the detailed log in '$R_INSTALL_LOG' for specific information."
 else
-    echo "The R package installation script completed successfully."
+    echo "The R package installation script completed successfully (exit code 0)."
     echo "Please check the log file '$R_INSTALL_LOG' to verify the status of all packages."
 fi
 echo "The R script '$INSTALL_R_SCRIPT' has been kept for inspection."
-
 
 echo ""
 echo "--- R Dependency Installation Attempt Complete (System-Wide Mode) ---"
 echo ""
 
-# --- Python Environment Setup using Conda ---
+# Python Environment Setup using Conda
 echo "========================================================================"
 echo "--- Starting Python Environment Setup for IMPACT-sc ---"
 echo "========================================================================"
@@ -394,7 +803,7 @@ echo "Found Conda: $(command -v conda)"
 conda --version
 
 ENV_NAME="impact_sc"
-PYTHON_VERSION="3.9" 
+PYTHON_VERSION="3.9"
 PYTHON_INSTALL_LOG="python_env_install.log"
 
 echo ""
@@ -409,7 +818,7 @@ if ! conda env list | grep -q "$ENV_NAME"; then
 else
     echo "Conda environment '$ENV_NAME' already exists. Skipping creation."
     echo "If you need to reinstall, please remove the environment first: conda env remove -n $ENV_NAME"
-    CONDA_CREATE_EXIT_CODE=0 
+    CONDA_CREATE_EXIT_CODE=0    
 fi
 
 if [ $CONDA_CREATE_EXIT_CODE -ne 0 ]; then
@@ -466,9 +875,19 @@ echo ""
 echo "Then you can run the main pipeline, for example:"
 echo "  python run_impact_sc_pipeline.py path/to/your/params.json"
 echo ""
-echo "IMPORTANT REMINDERS (Recap from R section):"
+echo "IMPORTANT REMINDERS (Recap):"
 echo "- If R packages failed, address those issues. R is often a prerequisite for parts of the pipeline."
-echo "- RUN THIS SCRIPT AS ADMINISTRATOR if installing R packages to system R library to avoid 'Permission Denied' errors."
-echo "- Ensure Rtools (Windows) or build tools (macOS/Linux) are correctly set up and accessible by R for source compilation."
+echo "- Ensure no R sessions or processes are running when installing R packages, especially if you encounter 'cannot remove earlier installation' errors."
+
+if [ "$OS_TYPE" == "windows" ]; then
+    echo "- Remember to RUN THIS SCRIPT AS ADMINISTRATOR on Windows if installing R packages to system R library to avoid 'Permission Denied' errors."
+    echo "- Ensure Rtools (Windows) is correctly set up and accessible by R for source compilation."
+elif [ "$OS_TYPE" == "mac" ]; then
+    echo "- If R package installation fails with permission errors, try running this script with 'sudo'."
+    echo "- Ensure Xcode Command Line Tools are installed (run 'xcode-select --install') for compiling R packages from source on macOS."
+elif [ "$OS_TYPE" == "linux" ]; then
+    echo "- If R package installation fails with permission errors, try running this script with 'sudo'."
+    echo "- Ensure build-essential packages are installed for compiling R packages from source on Linux."
+fi
 
 exit 0
