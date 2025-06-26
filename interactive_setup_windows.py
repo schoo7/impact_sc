@@ -400,7 +400,12 @@ def setup_demo_mode(downloaded_data: Dict[str, str], rscript_executable_path: st
         print("Please run './download_data.sh' to download the required data.")
         return False
 
-    params["final_cell_type_source"] = "auto"
+    # --- Annotation Method for Demo ---
+    params["annotation_method"] = "singler" # Default to singler for demo
+    params["final_cell_type_source"] = "singler" # Set final source to singler as well for demo
+    params["cellama_temperature"] = 0.0
+    params["ollama_model_name"] = OLLAMA_MODEL_NAME_DEFAULT
+
     params["reduction_method"] = "umap"
     params["featureplot_genes"] = "CD3D,CD14,MS4A1,FCGR3A,LYZ,PPBP"
     params["dotplot_gene_groups"] = [
@@ -413,7 +418,6 @@ def setup_demo_mode(downloaded_data: Dict[str, str], rscript_executable_path: st
     params["ucell_plot_pathway_name"] = ""
     params["conditional_paths"] = {"query_rds_path": None, "query_species": None, "palantir_start_cell": None}
     params["spatial_data_rds_path"] = None # Not used in demo
-    params["ollama_model_name"] = OLLAMA_MODEL_NAME_DEFAULT
     params["ollama_base_url"] = OLLAMA_BASE_URL_DEFAULT
     
     save_params(params)
@@ -522,11 +526,49 @@ def setup_custom_mode(downloaded_data: Dict[str, str], rscript_executable_path: 
     params["pca_dims"] = int(ask_question("Enter number of principal components (PCs) for PCA", "50"))
     params["cluster_resolution"] = float(ask_question("Enter clustering resolution for FindClusters", "0.1"))
     params["dims_for_clustering"] = int(ask_question("Enter number of dimensions for clustering (e.g., 50 for UMAP, 1024 for C2S)", "50"))
-    # --- END NEW/MODIFIED SECTION ---
-
 
     print("\n--- Module Selection ---")
     params["selected_modules"] = select_modules()
+    
+    # --- Annotation Method Selection (MODIFIED) ---
+    if "03_cell_type_annotation" in params["selected_modules"]:
+        print("\n--- Cell Type Annotation Method (Module 03) ---")
+        # This single question now controls both the annotation method to run and the final source
+        annotation_choice = ask_question(
+            "Choose annotation source for the final 'cell_type' column ("auto", "seurat", "c2s", "singler", "cellama").\n'singler' or 'cellama' will be run if selected.",
+            "auto",
+            choices=["auto", "seurat", "c2s", "singler", "cellama"]
+        ).lower()
+        
+        params["annotation_method"] = annotation_choice
+        params["final_cell_type_source"] = annotation_choice # Use the same choice for the final source
+        
+        print(f"Annotation method set to: '{annotation_choice}'. This will also be the source for the final cell type column.")
+
+        params["cellama_temperature"] = 0.0 # Default value
+        params["ollama_model_name"] = OLLAMA_MODEL_NAME_DEFAULT # Default value
+
+        if params["annotation_method"] == "cellama":
+            print("\nThe 'temperature' parameter controls the randomness of the ceLLama model's output.")
+            print("Higher values (e.g., 0.8) are more creative; lower values (e.g., 0.2) are more deterministic.")
+            temp_str = ask_question("Enter ceLLama temperature value", "0.0")
+            try:
+                params["cellama_temperature"] = float(temp_str)
+            except ValueError:
+                print(f"Invalid temperature value '{temp_str}'. Defaulting to 0.0.")
+                params["cellama_temperature"] = 0.0
+            
+            # Ask for the Ollama model name
+            params["ollama_model_name"] = ask_question(
+                "Enter the Ollama model name to use for ceLLama",
+                OLLAMA_MODEL_NAME_DEFAULT
+            )
+    else:
+        # Set defaults if module 3 is not selected
+        params["annotation_method"] = "singler" 
+        params["final_cell_type_source"] = "auto"
+        params["cellama_temperature"] = 0.0
+        params["ollama_model_name"] = OLLAMA_MODEL_NAME_DEFAULT
 
     params["h5ad_path_for_c2s"] = None 
     params["c2s_model_path_or_name"] = None 
@@ -583,14 +625,6 @@ def setup_custom_mode(downloaded_data: Dict[str, str], rscript_executable_path: 
             print("CRITICAL ERROR: Module 04g selected, but no spatial data RDS path provided. Exiting.")
             sys.exit(1)
 
-    if "03_cell_type_annotation" in params["selected_modules"]:
-        print("\n--- Final Cell Type Source (Module 03) ---")
-        params["final_cell_type_source"] = ask_question(
-            "Which annotation source should be used for the final 'cell_type' column? (auto, seurat, c2s, singler)",
-            "auto", choices=["auto", "seurat", "c2s", "singler"]
-        ).lower()
-    else: params["final_cell_type_source"] = "auto"
-
     if "04a_basic_visualization" in params["selected_modules"]:
         print("\n--- Basic Visualization (Module 04a) Specific Inputs ---")
         params["reduction_method"] = ask_question(
@@ -632,7 +666,7 @@ def setup_custom_mode(downloaded_data: Dict[str, str], rscript_executable_path: 
         )
 
 
-    if "03_cell_type_annotation" in params["selected_modules"]:
+    if "03_cell_type_annotation" in params["selected_modules"] and params.get("annotation_method") == "singler":
         print("\n--- SingleR Reference Configuration (Module 03) ---")
         print("This module requires a local SingleR reference data file in .RDS format.")
 
@@ -650,7 +684,7 @@ def setup_custom_mode(downloaded_data: Dict[str, str], rscript_executable_path: 
         if local_ref_paths:
             params["local_singler_ref_path"] = local_ref_paths[0]
         else:
-            print("CRITICAL ERROR: Module 03 was selected, but no valid reference file path was provided. Exiting.")
+            print("CRITICAL ERROR: Module 03 with SingleR was selected, but no valid reference file path was provided. Exiting.")
             sys.exit(1)
 
         default_label_suggestion = "label.main"
@@ -681,7 +715,6 @@ def setup_custom_mode(downloaded_data: Dict[str, str], rscript_executable_path: 
             sys.exit(1)
         params["conditional_paths"]["query_species"] = ask_question("Enter species of query dataset ('human' or 'mouse')", params["species"], ["human", "mouse"]).lower()
 
-    params["ollama_model_name"] = OLLAMA_MODEL_NAME_DEFAULT
     params["ollama_base_url"] = OLLAMA_BASE_URL_DEFAULT
     
     save_params(params)
