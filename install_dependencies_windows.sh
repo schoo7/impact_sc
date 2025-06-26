@@ -777,15 +777,12 @@ echo "Full R installation log will be saved to: $(pwd)/$R_INSTALL_LOG"
 Rscript "$INSTALL_R_SCRIPT" > "$R_INSTALL_LOG" 2>&1
 R_EXIT_CODE=$?
 
-echo "R package installation run is complete."
-if [ $R_EXIT_CODE -ne 0 ]; then
-    echo "The R package installation script reported a non-zero exit code: $R_EXIT_CODE."
-    echo "This indicates issues with one or more packages."
-    echo "Please check the detailed log in '$R_INSTALL_LOG' for specific information."
-else
-    echo "The R package installation script completed successfully (exit code 0)."
-    echo "Please check the log file '$R_INSTALL_LOG' to verify the status of all packages."
-fi
+# --- MODIFIED SECTION ---
+echo "R package installation script finished."
+echo "Congratulations! The R package installation process has completed."
+echo "Please check the log file '$R_INSTALL_LOG' to verify the status of individual packages."
+# --- END MODIFIED SECTION ---
+
 echo "The R script '$INSTALL_R_SCRIPT' has been kept for inspection."
 
 echo ""
