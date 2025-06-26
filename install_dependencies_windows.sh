@@ -276,7 +276,9 @@ main_try_catch_result <- tryCatch({
         "CARD" = "1.1",
         "liana" = "0.1.14",
         "basilisk" = NULL,  # Adjusted to match Bioconductor 3.16 default
-        "basilisk.utils" = "1.21.2"
+        "basilisk.utils" = "1.21.2",
+        "ceLLama" = "0.1.0",
+        "thinkr" = "0.1.2"
     )
 
     # Determine a writable library path for package installation
@@ -612,6 +614,13 @@ main_try_catch_result <- tryCatch({
     tryCatch(remotes::install_github("huayc09/SeuratExtend", upgrade = "never", build_vignettes = FALSE, force = TRUE, lib = user_lib_path),
              error = function(e) message(paste0("GitHub install failed for huayc09/SeuratExtend: ", conditionMessage(e))))
 
+    cat("Installing additional user-specified GitHub packages (ceLLama, thinkr)...\\n")
+    tryCatch(devtools::install_github("CelVoxes/ceLLama", upgrade = "never", build_vignettes = FALSE, force = TRUE, lib = user_lib_path),
+            error = function(e) message(paste0("GitHub install failed for CelVoxes/ceLLama: ", conditionMessage(e))))
+
+    tryCatch(devtools::install_github("eonurk/thinkR", upgrade = "never", build_vignettes = FALSE, force = TRUE, lib = user_lib_path),
+            error = function(e) message(paste0("GitHub install failed for eonurk/thinkR: ", conditionMessage(e))))
+
     if (requireNamespace("Seurat", quietly = TRUE, lib.loc = user_lib_path)){
         cat("Seurat appears to be installed. Proceeding with Seurat-dependent GitHub packages.\\n")
         tryCatch(remotes::install_github("mojaveazure/seurat-disk", upgrade = "never", build_vignettes = FALSE, force = TRUE, lib = user_lib_path),
@@ -717,7 +726,7 @@ target_packages <- c(
     "OmnipathR",
     "yulab.utils", "ggfun", "scatterpie",
     "scRNAtoolVis", "SeuratExtend", "SeuratDisk", "MuSiC", "CARD", "liana",
-    "basilisk", "basilisk.utils"
+    "basilisk", "basilisk.utils", "ceLLama", "thinkr"
 )
 
 installed_pkg_versions <- data.frame(Package = character(), Version = character(), stringsAsFactors = FALSE)
