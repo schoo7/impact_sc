@@ -768,6 +768,8 @@ cat("'install_if_missing' or 'install_and_check_bioc' calls in this script.\n")
 cat("Example: install_if_missing(\"dplyr\", lib_path = user_lib_path, version = \"1.0.0\")\n")
 cat("========================================================================\n")
 
+# Explicitly quit the script with a success status code to prevent potential exit errors.
+quit(save = "no", status = 0)
 EOF
 
 echo "Running R package installation script (this may take a very long time)..."
@@ -778,9 +780,15 @@ Rscript "$INSTALL_R_SCRIPT" > "$R_INSTALL_LOG" 2>&1
 R_EXIT_CODE=$?
 
 # --- MODIFIED SECTION ---
-echo "R package installation script finished."
-echo "Congratulations! The R package installation process has completed."
-echo "Please check the log file '$R_INSTALL_LOG' to verify the status of individual packages."
+# Check the exit code from the R script and report status accordingly.
+if [ $R_EXIT_CODE -eq 0 ]; then
+    echo "R package installation script finished successfully."
+    echo "Congratulations! The R package installation process has completed."
+    echo "You can check the log file '$R_INSTALL_LOG' for details and warnings."
+else
+    echo "R package installation script finished with errors (Exit Code: $R_EXIT_CODE)."
+    echo "The installation may be incomplete. Please review the error messages in the log file: '$(pwd)/$R_INSTALL_LOG'."
+fi
 # --- END MODIFIED SECTION ---
 
 echo "The R script '$INSTALL_R_SCRIPT' has been kept for inspection."
