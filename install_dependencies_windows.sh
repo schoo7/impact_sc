@@ -194,7 +194,7 @@ main_try_catch_result <- tryCatch({
         "s2" = "1.1.6",
         "units" = "0.8.5",
         "future" = "1.33.2",
-        "promises" = "1.3.0",
+        "promises" = "1.3.2",
         "later" = "1.3.2",
         "httpuv" = "1.6.15",
         "usethis" = "2.2.3",
