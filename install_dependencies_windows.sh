@@ -73,27 +73,41 @@ echo "Please enter the full path to your installed R 4.2.3 'bin' directory, for 
 if [ "$OS_TYPE" == "windows" ]; then
     echo "  Windows (Git Bash format): /c/Program Files/R/R-4.2.3/bin or /f/R-4.2.3/bin"
 elif [ "$OS_TYPE" == "mac" ]; then
-    echo "  macOS: /Library/Frameworks/R.framework/Versions/4.2/Resources/bin or /opt/homebrew/bin"
+    echo "  macOS: /Library/Frameworks/R.framework/Versions/4.2-arm64/Resources/bin"
 elif [ "$OS_TYPE" == "linux" ]; then
     echo "  Linux: /usr/bin/R or /usr/local/bin/R"
 fi
 read -p "R 4.2.3 'bin' directory path: " USER_R_BIN_PATH
 
-# Attempt to add user-specified R path to the script's PATH
-if [ -z "$USER_R_BIN_PATH" ]; then
-    echo "WARNING: R 'bin' directory path not provided. Script will rely on 'Rscript' being in system PATH."
-    echo "If 'Rscript command not found' error occurs later, please ensure R's 'bin' directory is in your system PATH, or re-run the script and provide the correct path."
-else
+# --- MODIFIED SECTION FOR ROBUST R SCRIPT SELECTION (macOS FIX) ---
+# This section ensures the script uses the specific R version you provide.
+# It defines a direct path to the Rscript executable instead of relying on the system's default PATH.
+
+# Default to 'Rscript' which would be found in the system PATH.
+RSCRIPT_EXEC="Rscript"
+
+# If the user provides a path, construct a direct path to the Rscript executable.
+if [ -n "$USER_R_BIN_PATH" ]; then
     if [ -d "$USER_R_BIN_PATH" ]; then
-        echo "Attempting to add $USER_R_BIN_PATH to PATH for this script session."
-        export PATH="$USER_R_BIN_PATH:$PATH"
-        echo "Current PATH (first few entries): $(echo "$PATH" | cut -d':' -f1-5)..."
+        CANDIDATE_RSCRIPT_EXEC="$USER_R_BIN_PATH/Rscript"
+        if [ -x "$CANDIDATE_RSCRIPT_EXEC" ]; then
+            # If the Rscript executable exists and is runnable, set it as our command.
+            RSCRIPT_EXEC="$CANDIDATE_RSCRIPT_EXEC"
+            echo "Using specific Rscript executable: $RSCRIPT_EXEC"
+            # Prepending to PATH is still good practice for any subprocesses R might launch.
+            export PATH="$USER_R_BIN_PATH:$PATH"
+        else
+            echo "ERROR: 'Rscript' not found or not executable at the specified path: $CANDIDATE_RSCRIPT_EXEC"
+            echo "The script will fall back to relying on 'Rscript' being in the system's default PATH."
+        fi
     else
-        echo "ERROR: Specified R 'bin' directory path '$USER_R_BIN_PATH' not found. Please ensure the path is correct."
-        echo "Script will rely on 'Rscript' being in system PATH."
+        echo "ERROR: The specified R 'bin' directory was not found: '$USER_R_BIN_PATH'"
+        echo "The script will rely on 'Rscript' being in the system's default PATH."
     fi
+else
+    echo "WARNING: R 'bin' directory path not provided. Relying on 'Rscript' in system PATH."
 fi
-# End R Path Addition
+# --- END MODIFIED SECTION ---
 
 
 # IMPORTANT OS-SPECIFIC PRE-REQUISITES for Development Tools
@@ -135,20 +149,17 @@ echo "========================================================================"
 echo ""
 
 echo "Step 1: Checking for system Rscript..."
-if ! command -v Rscript &> /dev/null
-then
-    echo "Rscript command not found in PATH even after attempting to add user-specified path."
+# Check if the determined Rscript command is valid.
+if ! command -v "$RSCRIPT_EXEC" &> /dev/null; then
+    echo "Rscript command '$RSCRIPT_EXEC' not found or not executable."
     echo "Please perform the following checks:"
-    echo "1. Verify R 4.2.3 is installed on your system."
-    echo "2. Ensure R's 'bin' directory (e.g., C:\\Program Files\\R\\R-x.x.x\\bin or /Library/Frameworks/R.framework/Versions/R-x.x.x/Resources/bin) "
-    echo "   is added to your system's PATH."
-    echo "3. Restart your terminal after modifying system PATH."
-    echo "4. Double-check the 'R 4.2.3 bin directory path' input you provided earlier, and ensure it accurately points to your R's bin directory "
-    echo "   (using Git Bash path format for Windows, or standard Unix path for macOS/Linux)."
+    echo "1. Verify R is installed on your system."
+    echo "2. If you provided a path, ensure it is correct and contains an 'Rscript' executable."
+    echo "3. If you did not provide a path, ensure R's 'bin' directory is in your system's PATH."
     exit 1
 fi
-echo "Found Rscript: $(command -v Rscript)"
-Rscript -e "cat('System R version found: ', R.version.string, '\n')"
+echo "Found Rscript: $($RSCRIPT_EXEC -e 'cat(R.home("bin"))')/Rscript"
+"$RSCRIPT_EXEC" -e "cat('System R version found: ', R.version.string, '\n')"
 
 
 echo "Step 2: Installing R Packages using system R..."
@@ -156,6 +167,9 @@ INSTALL_R_SCRIPT="temp_install_r_packages_system_r_only.R" # This script will be
 cat << EOF > "$INSTALL_R_SCRIPT"
 # Top-level error handler for the entire R script execution
 main_try_catch_result <- tryCatch({
+
+    # Force English language for messages to ensure consistency
+    Sys.setenv(LANGUAGE = "en")
 
     # Log R version and environment details at the beginning
     cat("--- R Environment Details (System R) ---\n")
@@ -194,7 +208,7 @@ main_try_catch_result <- tryCatch({
         "s2" = "1.1.6",
         "units" = "0.8.5",
         "future" = "1.33.2",
-        "promises" = "1.3.2",
+        "promises" = "1.3.0",
         "later" = "1.3.2",
         "httpuv" = "1.6.15",
         "usethis" = "2.2.3",
@@ -274,9 +288,6 @@ main_try_catch_result <- tryCatch({
         "SeuratDisk" = "0.0.0.9021",
         "MuSiC" = "1.0.0",
         "CARD" = "1.1",
-        "liana" = "0.1.14",
-        "basilisk" = NULL,  # Adjusted to match Bioconductor 3.16 default
-        "basilisk.utils" = "1.21.2",
         "ceLLama" = "0.1.0",
         "thinkr" = "0.1.2"
     )
@@ -435,31 +446,14 @@ main_try_catch_result <- tryCatch({
     options(repos = c(CRAN = "https://cloud.r-project.org/"))
     cat("CRAN mirror set to https://cloud.r-project.org/\\n")
 
-    # Ensure Matrix is installed with the correct version first
-    if ("Matrix" %in% names(package_versions)) {
-        fixed_version <- package_versions[["Matrix"]]
-        cat("Ensuring 'Matrix' v", fixed_version, " is installed...\\n")
-        install_if_missing("Matrix", lib_path = user_lib_path, version = fixed_version)
-    }
+    # Install remotes first
+    install_if_missing("remotes", lib_path = user_lib_path, version = package_versions[["remotes"]])
+    library(remotes, lib.loc=user_lib_path)
 
     # Special handling for matrixStats
     pkg_name_matrixStats <- "matrixStats"
     target_version_matrixStats <- package_versions[[pkg_name_matrixStats]]
     cat(paste0("Attempting to ensure '", pkg_name_matrixStats, "' v", target_version_matrixStats, " is cleanly installed...\\n"))
-
-    if (requireNamespace(pkg_name_matrixStats, quietly = TRUE, lib.loc = user_lib_path)) {
-        cat(paste0("Removing existing '", pkg_name_matrixStats, "' to ensure clean reinstallation...\\n"))
-        tryCatch({
-            remove.packages(pkg_name_matrixStats, lib = user_lib_path)
-            cat(paste0("Successfully removed existing '", pkg_name_matrixStats, "'.\\n"))
-        }, error = function(e) {
-            cat(paste0("WARNING: Could not remove existing '", pkg_name_matrixStats, "'. Error: ", conditionMessage(e), ". This might lead to 'cannot rename file' errors or other installation failures if the package is in use.\\n"))
-            cat("Please ensure no other R sessions or processes are running that might lock package files (e.g., RStudio, other R consoles, background R processes) and try again.\\n")
-        })
-    } else {
-        cat(paste0("No existing '", pkg_name_matrixStats, "' package found for removal.\\n"))
-    }
-
     tryCatch({
         remotes::install_version(pkg_name_matrixStats, version = target_version_matrixStats, 
                                  Ncpus = max(1, parallel::detectCores() - 1), lib = user_lib_path, 
@@ -469,12 +463,17 @@ main_try_catch_result <- tryCatch({
             cat(paste0("Successfully installed '", pkg_name_matrixStats, "' v", target_version_matrixStats, ".\\n"))
         } else {
             cat(paste0("ERROR: Failed to install '", pkg_name_matrixStats, "' v", target_version_matrixStats, " or correct version not found after installation attempt.\\n"))
-            message("This is a critical dependency. Please check the R log for specific errors. Often, ensuring no other R sessions are running and retrying solves this.\\n")
         }
     }, error = function(e) {
         cat(paste0("CRITICAL ERROR during installation of '", pkg_name_matrixStats, "' v", target_version_matrixStats, ": ", conditionMessage(e), "\\n"))
-        message("This package is a common source of installation issues. Please ensure Rtools (Windows) or build essentials (macOS/Linux) are correctly configured and accessible by R, and that no R sessions are locking files.\\n")
     })
+
+    # Ensure Matrix is installed with the correct version first
+    if ("Matrix" %in% names(package_versions)) {
+        fixed_version <- package_versions[["Matrix"]]
+        cat("Ensuring 'Matrix' v", fixed_version, " is installed...\\n")
+        install_if_missing("Matrix", lib_path = user_lib_path, version = fixed_version)
+    }
 
     # Pre-emptive spatstat.utils handling
     cat("--- Pre-emptive spatstat.utils handling ---\\n")
@@ -521,7 +520,7 @@ main_try_catch_result <- tryCatch({
     cran_core_and_pre_deps_binary <- c(
         "Rcpp", "reticulate", "igraph", "openssl", "curl", "xml2", "V8",
         "sf", "s2", "units", "future", "promises", "later", "httpuv",
-        "usethis", "pkgload", "pkgbuild", "sessioninfo", "desc", "purrr", "jsonlite", "httr", "remotes",
+        "usethis", "pkgload", "pkgbuild", "sessioninfo", "desc", "purrr", "jsonlite", "httr",
         "dplyr", "ggplot2", "tibble", "tidyr", "viridis", "reshape2", "pheatmap", "cowplot", "ggpubr", "patchwork",
         "stringr", "car", "ggcorrplot", "homologene"
     )
@@ -539,8 +538,6 @@ main_try_catch_result <- tryCatch({
 
     install_if_missing("devtools", lib_path = user_lib_path, version = package_versions[["devtools"]])
     library(devtools, lib.loc = user_lib_path)
-    install_if_missing("remotes", lib_path = user_lib_path, version = package_versions[["remotes"]])
-    library(remotes, lib.loc = user_lib_path)
 
     cat("Installing specific CRAN/GitHub dependencies...\\n")
     tryCatch(remotes::install_github("HenrikBengtsson/R.utils", ref="develop", upgrade = "never", build_vignettes = FALSE, force = TRUE, lib = user_lib_path),
@@ -621,73 +618,22 @@ main_try_catch_result <- tryCatch({
     tryCatch(devtools::install_github("eonurk/thinkR", upgrade = "never", build_vignettes = FALSE, force = TRUE, lib = user_lib_path),
             error = function(e) message(paste0("GitHub install failed for eonurk/thinkR: ", conditionMessage(e))))
 
-    if (requireNamespace("Seurat", quietly = TRUE, lib.loc = user_lib_path)){
-        cat("Seurat appears to be installed. Proceeding with Seurat-dependent GitHub packages.\\n")
-        tryCatch(remotes::install_github("mojaveazure/seurat-disk", upgrade = "never", build_vignettes = FALSE, force = TRUE, lib = user_lib_path),
-                 error = function(e) message(paste0("GitHub install failed for mojaveazure/seurat-disk: ", conditionMessage(e))))
-    } else {
-        cat("Seurat does not appear to be installed. Skipping SeuratDisk.\\n")
-    }
+   cat("Directly installing SeuratDisk as requested.\n")
+    tryCatch(remotes::install_github("mojaveazure/seurat-disk", lib = user_lib_path),
+             error = function(e) message(paste0("GitHub install failed for mojaveazure/seurat-disk: ", conditionMessage(e))))
 
     tryCatch(devtools::install_github("xuranw/MuSiC", upgrade = "never", build_vignettes = FALSE, force = TRUE, lib = user_lib_path),
              error = function(e) message(paste0("GitHub install failed for xuranw/MuSiC: ", conditionMessage(e))))
 
     tryCatch(devtools::install_github("YingMa0107/CARD", upgrade = "never", build_vignettes = FALSE, force = TRUE, lib = user_lib_path),
              error = function(e) message(paste0("GitHub install failed for CARD: ", conditionMessage(e))))
-    
-    cat("Installing liana using remotes::install...\\n")
-    cat("Attempting to ensure 'basilisk' is cleanly installed...\\n")
 
-    if (requireNamespace("basilisk", quietly = TRUE, lib.loc = user_lib_path)) {
-      cat("Attempting to remove existing 'basilisk' package...\\n")
-      tryCatch(
-        remove.packages("basilisk", lib = user_lib_path),
-        error = function(e) message(paste0("WARNING: Failed to remove 'basilisk' during pre-installation cleanup. This might indicate file locks. Error: ", conditionMessage(e), "\\n")),
-        warning = function(w) message(paste0("WARNING: Problems encountered removing 'basilisk'. Warning: ", conditionMessage(w), "\\n"))
-      )
-    }
-    if (requireNamespace("basilisk.utils", quietly = TRUE, lib.loc = user_lib_path)) {
-        cat("Attempting to remove existing 'basilisk.utils' package...\\n")
-        tryCatch(
-            remove.packages("basilisk.utils", lib = user_lib_path),
-            error = function(e) message(paste0("WARNING: Failed to remove 'basilisk.utils' during pre-installation cleanup. Error: ", conditionMessage(e), "\\n"))
-        )
-    }
-      
-    if (requireNamespace("basilisk", quietly = TRUE, lib.loc = user_lib_path)) {
-      cat("WARNING: 'basilisk' still detected after removal attempt. Please ensure no other R sessions are using it, or try restarting R and rerunning the script.\\n")
-    } else {
-      cat("'basilisk' successfully removed (if it existed) or not found.\\n")
-    }
-
-    install_and_check_bioc("basilisk", lib_path = user_lib_path)
-    if (requireNamespace("basilisk", quietly = TRUE, TRUE)) {
-      cat("Successfully ensured 'basilisk' is installed and its namespace is available.\\n")
-    } else {
-      cat("ERROR: 'basilisk' did not install correctly or could not be loaded. 'liana' installation may fail.\\n")
-      message("Please check the R log for 'basilisk' installation errors. You might need to manually inspect its dependencies or try installing it separately.\\n")
-    }
-    
-    tryCatch(remotes::install_github('saezlab/liana', upgrade = "never", build_vignettes = FALSE, force = TRUE, lib = user_lib_path),
-             error = function(e) message(paste0("GitHub install failed for saezlab/liana. This might be due to 'basilisk' issues. Error: ", conditionMessage(e))))
-
-    cat("R package installation script finished.\\n")
+    cat("Main R package installation script finished.\\n")
     return(TRUE)
 
 }, error = function(e) {
-    cat("A critical error occurred during R script execution:\\n")
-    cat("Original error type:", paste(class(e), collapse=", "), "\\n")
-    if (!is.null(e\$message)) {
-        cat("Original error message (attempting to print as character):\\n")
-        tryCatch({
-            cat(paste(as.character(e\$message), collapse = "\\n"), "\\n")
-        }, error = function(e_print_msg) {
-            cat("Failed to print original e\$message directly. Error during printing: ", conditionMessage(e_print_msg), "\\n")
-        })
-    }
-    if (!is.null(e\$call)) {
-        cat("Original error call:", deparse(e\$call), "\\n")
-    }
+    cat("A critical error occurred during the main R script execution:\\n")
+    cat("Original error message:", conditionMessage(e), "\\n")
     quit(status = 1, save = "no")
 })
 
@@ -696,102 +642,61 @@ if (is.null(main_try_catch_result) || inherits(main_try_catch_result, "error")) 
     if(exists("quit")) quit(status = 1, save = "no")    
 }
 
-# --- Section to save installed package versions to CSV ---
-cat("\n========================================================================\n")
-cat("SAVING INSTALLED R PACKAGE VERSIONS TO CSV (For Reference / Pinning)\n")
-cat("========================================================================\n")
-
-output_csv_path <- "F:/R_PROJECT/impact_sc/version.csv" 
-output_dir <- dirname(output_csv_path)
-
-target_packages <- c(
-    "spatstat.utils", "BiocManager",
-    "GenomeInfoDbData", "GenomeInfoDb", "AnnotationDbi", "org.Hs.eg.db", "org.Mm.eg.db",
-    "fastmap", "rlang", "cli", "htmltools", "digest",
-    "Rcpp", "reticulate", "igraph", "openssl", "curl", "xml2", "V8",
-    "sf", "s2", "units", "future", "promises", "later", "httpuv",
-    "usethis", "pkgload", "pkgbuild", "sessioninfo", "desc", "purrr", "jsonlite", "httr", "remotes",
-    "dplyr", "ggplot2", "Matrix", "tibble", "tidyr", "viridis", "reshape2", "pheatmap", "cowplot", "ggpubr", "patchwork",
-    "stringr", "car", "ggcorrplot", "homologene",
-    "TOAST",
-    "spatstat.geom", "spatstat.random", "spatstat.explore", "spatstat.model",
-    "devtools",
-    "R.utils", "ggunchull",
-    "Seurat", "matrixStats",
-    "leiden", "sctransform", "SeuratObject",
-    "harmony", "celldex",
-    "decoupleR", "ensembldb", "msigdbr", "scater",
-    "scDblFinder", "SCpubr",
-    "SingleCellExperiment", "SingleR", "SpatialExperiment", "scran", "UCell",
-    "OmnipathR",
-    "yulab.utils", "ggfun", "scatterpie",
-    "scRNAtoolVis", "SeuratExtend", "SeuratDisk", "MuSiC", "CARD", "liana",
-    "basilisk", "basilisk.utils", "ceLLama", "thinkr"
-)
-
-installed_pkg_versions <- data.frame(Package = character(), Version = character(), stringsAsFactors = FALSE)
-
-for (pkg_name in unique(target_packages)) {
-    pkg_version <- tryCatch(
-        as.character(packageVersion(pkg_name, lib.loc = user_lib_path)),
-        error = function(e) NA
-    )
-    if (!is.na(pkg_version)) {
-        installed_pkg_versions <- rbind(installed_pkg_versions, data.frame(Package = pkg_name, Version = pkg_version, stringsAsFactors = FALSE))
-    }
-}
-
-installed_pkg_versions <- installed_pkg_versions[order(installed_pkg_versions$Package), ]
-
-df_pkgs_to_save <- as.data.frame(installed_pkg_versions, stringsAsFactors = FALSE)
-colnames(df_pkgs_to_save) <- c("Package", "Version")
-
-if (!dir.exists(output_dir)) {
-    message(paste0("Creating directory for CSV: ", output_dir, "\\n"))
-    tryCatch(dir.create(output_dir, recursive = TRUE, showWarnings = TRUE),
-             error = function(e) message(paste0("Failed to create directory: ", output_dir, ". Error: ", e$message, "\\n")))
-}
-
-tryCatch({
-    write.csv(df_pkgs_to_save, file = output_csv_path, row.names = FALSE)
-    cat(paste0("Successfully saved package versions to: ", output_csv_path, "\\n"))
-}, error = function(e) {
-    cat(paste0("ERROR: Failed to save package versions to CSV. Error: ", conditionMessage(e), "\\n"))
-    cat(paste0("Please check write permissions for the directory: ", output_dir, " and ensure the path is valid.\\n"))
-})
-
-cat("------------------------------------------------------------------------\n")
-cat("This CSV contains versions of packages targeted by this script.\n")
-cat("To fix specific package versions for future installations, copy the desired\n")
-cat("version numbers from the CSV and add 'version=\"X.Y.Z\"' to the corresponding\n")
-cat("'install_if_missing' or 'install_and_check_bioc' calls in this script.\n")
-cat("Example: install_if_missing(\"dplyr\", lib_path = user_lib_path, version = \"1.0.0\")\n")
-cat("========================================================================\n")
-
-# Explicitly quit the script with a success status code to prevent potential exit errors.
 quit(save = "no", status = 0)
 EOF
 
-echo "Running R package installation script (this may take a very long time)..."
+echo "Running main R package installation script (this may take a very long time)..."
 R_INSTALL_LOG="r_package_install_system_r_only.log"
 echo "Full R installation log will be saved to: $(pwd)/$R_INSTALL_LOG"
 
-Rscript "$INSTALL_R_SCRIPT" > "$R_INSTALL_LOG" 2>&1
+"$RSCRIPT_EXEC" "$INSTALL_R_SCRIPT" > "$R_INSTALL_LOG" 2>&1
 R_EXIT_CODE=$?
 
-# --- MODIFIED SECTION ---
-# Check the exit code from the R script and report status accordingly.
+# Check the exit code from the main installation
 if [ $R_EXIT_CODE -eq 0 ]; then
-    echo "R package installation script finished successfully."
-    echo "Congratulations! The R package installation process has completed."
-    echo "You can check the log file '$R_INSTALL_LOG' for details and warnings."
+    echo ""
+    echo "--- Main R package installation complete. ---"
 else
-    echo "R package installation script finished with errors (Exit Code: $R_EXIT_CODE)."
+    echo ""
+    echo "--- Main R package installation finished with errors (Exit Code: $R_EXIT_CODE). ---"
     echo "The installation may be incomplete. Please review the error messages in the log file: '$(pwd)/$R_INSTALL_LOG'."
 fi
-# --- END MODIFIED SECTION ---
 
-echo "The R script '$INSTALL_R_SCRIPT' has been kept for inspection."
+# Now, install liana separately
+echo ""
+echo "--- Starting final installation step for the 'liana' package. ---"
+echo "Appending liana installation log to '$R_INSTALL_LOG'..."
+
+INSTALL_LIANA_SCRIPT="temp_install_liana.R"
+cat << EOF > "$INSTALL_LIANA_SCRIPT"
+# Setup for liana installation
+Sys.setenv(LANGUAGE = "en")
+user_lib_path <- .libPaths()[1]
+.libPaths(c(user_lib_path, .libPaths()))
+options(repos = c(CRAN = "https://cloud.r-project.org/"))
+
+# liana installation
+cat("Installing liana using remotes::install...\\n")
+
+tryCatch({
+    if (!requireNamespace("remotes", quietly = TRUE)) {
+        install.packages("remotes", lib=user_lib_path, repos="https://cloud.r-project.org/")
+    }
+    remotes::install_github('saezlab/liana', upgrade = "never", build_vignettes = FALSE, force = TRUE, lib = user_lib_path)
+},
+error = function(e) message(paste0("GitHub install failed for saezlab/liana: ", conditionMessage(e)))
+)
+
+cat("Final R package installation step finished.\\n")
+quit(save = "no", status = 0)
+EOF
+
+"$RSCRIPT_EXEC" "$INSTALL_LIANA_SCRIPT" >> "$R_INSTALL_LOG" 2>&1
+
+echo "--- 'liana' package installation attempt finished. ---"
+
+
+echo "The R scripts have been kept for inspection."
 
 echo ""
 echo "--- R Dependency Installation Attempt Complete (System-Wide Mode) ---"
