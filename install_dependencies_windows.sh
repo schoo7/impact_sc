@@ -618,7 +618,7 @@ main_try_catch_result <- tryCatch({
     tryCatch(devtools::install_github("eonurk/thinkR", upgrade = "never", build_vignettes = FALSE, force = TRUE, lib = user_lib_path),
             error = function(e) message(paste0("GitHub install failed for eonurk/thinkR: ", conditionMessage(e))))
 
-   cat("Directly installing SeuratDisk as requested.\n")
+cat("Directly installing SeuratDisk as requested.\n")
     tryCatch(remotes::install_github("mojaveazure/seurat-disk", lib = user_lib_path),
              error = function(e) message(paste0("GitHub install failed for mojaveazure/seurat-disk: ", conditionMessage(e))))
 
