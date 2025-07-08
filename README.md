@@ -11,41 +11,20 @@
 ### Complete Installation Workflow
 
 <details>
-<summary><strong>🪟 Windows</strong></summary>
+<summary><strong>🪟 Windows & 🍎 macOS</strong></summary>
 
 1.  **Clone Repository and Install Dependencies**:
     ```bash
     git clone [https://github.com/schoo7/impact_sc.git](https://github.com/schoo7/impact_sc.git)
     cd impact_sc
-    ./install_dependencies_windows.sh  # Change the R bin path to your address
+    chmod +x install_dependencies.sh # For mac and linux users
+    ./install_dependencies.sh  #  Input your R bin path
     ```
 
 2.  **Activate Environment and Download Data**:
     ```bash
     conda activate impact_sc # Activates the Conda environment
-    ./download_data_windows.sh  # Downloads demo data, models, and reference datasets (~3-5GB)
-    ```
-
-3.  **Configure and Run Pipeline**:
-    ```bash
-    python interactive_setup_windows.py  # Recommended demo for first-time users
-    python run_impact_sc_pipeline_windows.py [path_to_params.json] # Runs the pipeline with the generated parameters file
-    ```
-</details>
-
-<details>
-<summary><strong>🍎 macOS</strong></summary>
-
-1.  **Clone Repository and Install Dependencies**:
-    ```bash
-    git clone [https://github.com/schoo7/impact_sc.git](https://github.com/schoo7/impact_sc.git)
-    cd impact_sc
-    ./install_dependencies.sh  # Automatically detect the R bin path
-    ```
-
-2.  **Activate Environment and Download Data**:
-    ```bash
-    conda activate impact_sc # Activates the Conda environment
+    chmod +x download_data.sh # For mac and linux users
     ./download_data.sh  # Downloads demo data, models, and reference datasets (~3-5GB)
     ```
 
