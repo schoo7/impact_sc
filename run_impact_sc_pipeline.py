@@ -12,74 +12,137 @@ def run_script(script_path: str, script_type: str, params: dict, module_name: st
     """
     output_dir = params["output_directory"]
     base_script_name = os.path.basename(script_path)
+    # Define log file path within the output directory
     log_file_path = os.path.join(output_dir, f"{module_name}_log.txt")
 
     print(f"--- Running {module_name} ({base_script_name}) ---")
     print(f"Output log: {log_file_path}")
 
+    # Create a copy of the current environment variables
     env = os.environ.copy()
-    env["IMPACT_SC_SPECIES"] = params.get("species", "human")
-    env["IMPACT_SC_OUTPUT_DIR"] = output_dir 
+    # Set common environment variables for scripts, ensuring all values are strings
+    env["IMPACT_SC_SPECIES"] = str(params.get("species", "human")) # Default to human if not specified
+    env["IMPACT_SC_OUTPUT_DIR"] = str(output_dir)
 
+    # Handle single input data path (legacy or primary)
     if params.get("input_data_paths") and len(params["input_data_paths"]) > 0:
-        env["IMPACT_SC_INPUT_DATA_PATH"] = params["input_data_paths"][0]
+        env["IMPACT_SC_INPUT_DATA_PATH"] = str(params["input_data_paths"][0])
     else:
         print(f"Warning: 'input_data_paths' is empty or not defined in params.json. Module {module_name} might fail if it requires IMPACT_SC_INPUT_DATA_PATH.")
 
+    # Handle multiple input data paths (joined by semicolon)
     if params.get("input_data_paths"):
-        env["IMPACT_SC_INPUT_DATA_PATHS"] = ";".join(params["input_data_paths"])
+        # Ensure all elements are strings before joining
+        env["IMPACT_SC_INPUT_DATA_PATHS"] = ";".join(map(str, params["input_data_paths"]))
 
     # --- Environment variable settings for specific modules ---
-    if module_name == "02b_c2s":
+    if module_name == "01_data_processing":
+        # Set QC and optional processing parameters from the interactive setup
+        env["IMPACT_SC_REMOVE_DOUBLETS"] = str(params.get("remove_doublets", False)).lower()
+        env["IMPACT_SC_REGRESS_CELL_CYCLE"] = str(params.get("regress_cell_cycle", False)).lower()
+        env["IMPACT_SC_QC_MIN_NFEATURE_RNA"] = str(params.get("qc_min_nfeature_rna", 200))
+        env["IMPACT_SC_QC_MAX_NFEATURE_RNA"] = str(params.get("qc_max_nfeature_rna", 6000))
+        env["IMPACT_SC_QC_MAX_PERCENT_MT"] = str(params.get("qc_max_percent_mt", 10))
+        env["IMPACT_SC_PCA_DIMS"] = str(params.get("pca_dims", 50))
+        print(f"Setting environment variables for module {module_name}:")
+        print(f"  IMPACT_SC_REMOVE_DOUBLETS = {env['IMPACT_SC_REMOVE_DOUBLETS']}")
+        print(f"  IMPACT_SC_REGRESS_CELL_CYCLE = {env['IMPACT_SC_REGRESS_CELL_CYCLE']}")
+        print(f"  IMPACT_SC_QC_MIN_NFEATURE_RNA = {env['IMPACT_SC_QC_MIN_NFEATURE_RNA']}")
+        print(f"  IMPACT_SC_QC_MAX_NFEATURE_RNA = {env['IMPACT_SC_QC_MAX_NFEATURE_RNA']}")
+        print(f"  IMPACT_SC_QC_MAX_PERCENT_MT = {env['IMPACT_SC_QC_MAX_PERCENT_MT']}")
+        print(f"  IMPACT_SC_PCA_DIMS = {env['IMPACT_SC_PCA_DIMS']}")
+        
+    elif module_name == "02a_harmony_c2s_prep":
+        env["IMPACT_SC_CLUSTER_RESOLUTION"] = str(params.get("cluster_resolution", 0.1))
+        env["IMPACT_SC_DIMS_FOR_CLUSTERING"] = str(params.get("dims_for_clustering", 50))
+        print(f"Setting environment variables for module {module_name}:")
+        print(f"  IMPACT_SC_CLUSTER_RESOLUTION = {env['IMPACT_SC_CLUSTER_RESOLUTION']}")
+        print(f"  IMPACT_SC_DIMS_FOR_CLUSTERING = {env['IMPACT_SC_DIMS_FOR_CLUSTERING']}")
+
+
+    elif module_name == "02b_c2s":
         h5ad_input_for_c2s = params.get("h5ad_path_for_c2s")
         c2s_model_path_or_name = params.get("c2s_model_path_or_name") # Get the model path/name
         
+        # Validate H5AD file path for C2S
         if not (h5ad_input_for_c2s and os.path.exists(h5ad_input_for_c2s)):
             error_msg = f"ERROR: H5AD file path for Cell2Sentence (module 02b_c2s) is not set or invalid in params.json: '{h5ad_input_for_c2s}'."
             print(error_msg)
-            with open(log_file_path, 'a', encoding='utf-8', errors='replace') as lf: lf.write(f"\nOrchestrator Error: {error_msg}\n")
-            return False
-        env["H5AD_FILE_PATH"] = h5ad_input_for_c2s
+            # Append error to log file if it can be opened
+            try:
+                with open(log_file_path, 'a', encoding='utf-8', errors='replace') as lf: lf.write(f"\nOrchestrator Error: {error_msg}\n")
+            except IOError: pass # Ignore if log file cannot be opened
+            return False # Indicate failure
+        env["H5AD_FILE_PATH"] = str(h5ad_input_for_c2s)
         
+        # Validate C2S model path/name
         if not c2s_model_path_or_name:
             error_msg = f"ERROR: Cell2Sentence model path/name (module 02b_c2s) is not set in params.json."
             print(error_msg)
-            with open(log_file_path, 'a', encoding='utf-8', errors='replace') as lf: lf.write(f"\nOrchestrator Error: {error_msg}\n")
-            return False
-        env["C2S_MODEL_PATH_OR_NAME"] = c2s_model_path_or_name # Set the new environment variable
+            try:
+                with open(log_file_path, 'a', encoding='utf-8', errors='replace') as lf: lf.write(f"\nOrchestrator Error: {error_msg}\n")
+            except IOError: pass
+            return False # Indicate failure
+        env["C2S_MODEL_PATH_OR_NAME"] = str(c2s_model_path_or_name)
 
+        # Define output directory and file paths specific to C2S module
         c2s_module_specific_output_dir = os.path.join(output_dir, "cell2sentence_module_outputs")
-        env["C2S_OUTPUT_DIR"] = c2s_module_specific_output_dir
-        env["C2S_EMBEDDINGS_CSV"] = os.path.join(c2s_module_specific_output_dir, "c2s_embeddings.csv")
-        env["C2S_PREDICTED_CSV"] = os.path.join(c2s_module_specific_output_dir, "c2s_predictions.csv")
+        env["C2S_OUTPUT_DIR"] = str(c2s_module_specific_output_dir)
+        env["C2S_EMBEDDINGS_CSV"] = str(os.path.join(c2s_module_specific_output_dir, "c2s_embeddings.csv"))
+        env["C2S_PREDICTED_CSV"] = str(os.path.join(c2s_module_specific_output_dir, "c2s_predictions.csv"))
 
+        # Print C2S specific environment variables being set
         print(f"Setting environment variables for module {module_name}:")
         print(f"  H5AD_FILE_PATH = {env['H5AD_FILE_PATH']}")
-        print(f"  C2S_MODEL_PATH_OR_NAME = {env['C2S_MODEL_PATH_OR_NAME']}") # Print the model path/name
+        print(f"  C2S_MODEL_PATH_OR_NAME = {env['C2S_MODEL_PATH_OR_NAME']}") 
         print(f"  C2S_OUTPUT_DIR = {env['C2S_OUTPUT_DIR']}")
         print(f"  C2S_EMBEDDINGS_CSV = {env['C2S_EMBEDDINGS_CSV']}")
         print(f"  C2S_PREDICTED_CSV = {env['C2S_PREDICTED_CSV']}")
 
     elif module_name == "03_cell_type_annotation":
+        # --- Annotation method parameters (NEW) ---
+        annotation_method = params.get("annotation_method", "singler")
+        cellama_temperature = params.get("cellama_temperature", 0.0)
+        ollama_model = params.get("ollama_model_name", "gemma3:12b-it-qat")
+        
+        env["IMPACT_SC_ANNOTATION_METHOD"] = str(annotation_method)
+        env["IMPACT_SC_CELLAMA_TEMPERATURE"] = str(cellama_temperature)
+        env["IMPACT_SC_OLLAMA_MODEL"] = str(ollama_model)
+        
+        print(f"Setting Annotation Method for Module 3 to: {annotation_method}")
+        if annotation_method == "cellama":
+            print(f"  Setting ceLLama Temperature to: {cellama_temperature}")
+            print(f"  Setting Ollama Model to: {ollama_model}")
+
+        # --- Original SingleR parameters ---
         local_ref_path = params.get("local_singler_ref_path")
         if local_ref_path and isinstance(local_ref_path, str) and local_ref_path.strip():
-            env["IMPACT_SC_LOCAL_SINGLER_REF_PATH"] = local_ref_path
+            env["IMPACT_SC_LOCAL_SINGLER_REF_PATH"] = str(local_ref_path)
             print(f"Setting IMPACT_SC_LOCAL_SINGLER_REF_PATH for Module 3 to: {local_ref_path}")
         else:
             env["IMPACT_SC_LOCAL_SINGLER_REF_PATH"] = ""
-            print(f"Warning: 'local_singler_ref_path' not found or empty for Module 3. R script might fail if it requires this.")
-            
+            if annotation_method == "singler":
+                 print(f"Warning: 'local_singler_ref_path' is missing or empty in params.json. Module 3 will likely fail.")
+
+        ref_label_col = params.get("local_singler_ref_label_col", "label.main")
+        env["IMPACT_SC_SINGLER_REF_LABEL_COL"] = str(ref_label_col)
+        print(f"Setting IMPACT_SC_SINGLER_REF_LABEL_COL for Module 3 to: {ref_label_col}")
+
         final_cell_type_source = params.get("final_cell_type_source")
         if final_cell_type_source:
-            env["IMPACT_SC_FINAL_CELL_TYPE_SOURCE"] = final_cell_type_source
+            env["IMPACT_SC_FINAL_CELL_TYPE_SOURCE"] = str(final_cell_type_source)
             print(f"Setting IMPACT_SC_FINAL_CELL_TYPE_SOURCE for Module 3 to: {final_cell_type_source}")
         else:
             env["IMPACT_SC_FINAL_CELL_TYPE_SOURCE"] = "auto"
             print(f"Warning: 'final_cell_type_source' not found in params. Module 3 will use its default ('auto').")
 
     elif module_name == "04a_basic_visualization":
+        reduction_method = params.get("reduction_method", "umap") # Default to umap if not set
+        env["IMPACT_SC_REDUCTION_METHOD"] = str(reduction_method)
+        print(f"Setting IMPACT_SC_REDUCTION_METHOD for Module 4a to: '{reduction_method}'")
+
         featureplot_genes = params.get("featureplot_genes", "")
-        env["IMPACT_SC_FEATUREPLOT_GENES"] = featureplot_genes
+        env["IMPACT_SC_FEATUREPLOT_GENES"] = str(featureplot_genes)
         print(f"Setting IMPACT_SC_FEATUREPLOT_GENES for Module 4a to: '{featureplot_genes if featureplot_genes else 'empty (skip)'}'")
 
         dotplot_gene_groups = params.get("dotplot_gene_groups", [])
@@ -93,52 +156,84 @@ def run_script(script_path: str, script_type: str, params: dict, module_name: st
         
     elif module_name == "04b_DE_gsea":
         de_gsea_plot_gene = params.get("de_gsea_plot_gene", "")
-        env["IMPACT_SC_DE_GENE"] = de_gsea_plot_gene
+        env["IMPACT_SC_DE_GENE"] = str(de_gsea_plot_gene)
         print(f"Setting IMPACT_SC_DE_GENE for Module 4b to: '{de_gsea_plot_gene if de_gsea_plot_gene else 'empty (skip)'}'")
 
     elif module_name == "04c_decoupler":
-        collectri_csv = params.get("collectri_csv_path", "")
-        env["IMPACT_SC_COLLECTRI_CSV_PATH"] = collectri_csv if collectri_csv else ""
-        if collectri_csv:
-            print(f"Setting IMPACT_SC_COLLECTRI_CSV_PATH for Module 4c to: {collectri_csv}")
-        else:
-            print("Warning: 'collectri_csv_path' not found or empty in params for Module 4c. R script will skip TF analysis.")
+        print("Info: For Module 4c, the R script will automatically download DecoupleR networks.")
+        print("No CSV path environment variables are needed.")
 
-        progeny_csv = params.get("progeny_csv_path", "")
-        env["IMPACT_SC_PROGENY_CSV_PATH"] = progeny_csv if progeny_csv else ""
-        if progeny_csv:
-            print(f"Setting IMPACT_SC_PROGENY_CSV_PATH for Module 4c to: {progeny_csv}")
-        else:
-            print("Info: 'progeny_csv_path' not found or empty in params for Module 4c. R script will skip PROGENy analysis if applicable.")
+    elif module_name == "04f_query_projection":
+        query_rds_path = params.get("conditional_paths", {}).get("query_rds_path")
+        if not (query_rds_path and os.path.exists(query_rds_path)):
+            error_msg = f"ERROR: Query data RDS file path for Query Projection (module 04f) is not set or invalid in params.json: '{query_rds_path}'."
+            print(error_msg)
+            try:
+                with open(log_file_path, 'a', encoding='utf-8', errors='replace') as lf:
+                    lf.write(f"\nOrchestrator Error: {error_msg}\n")
+            except IOError:
+                pass
+            return False # Fail the module
+        
+        query_species = params.get("conditional_paths", {}).get("query_species")
+        if not query_species:
+            query_species = params.get("species", "human") # Default to reference species
+            print(f"Warning: Query species not set for module 04f. Defaulting to reference species: '{query_species}'.")
+
+        env["IMPACT_SC_QUERY_RDS_PATH"] = str(query_rds_path)
+        env["IMPACT_SC_QUERY_SPECIES"] = str(query_species)
+        print(f"Setting IMPACT_SC_QUERY_RDS_PATH for Module 4f to: {query_rds_path}")
+        print(f"Setting IMPACT_SC_QUERY_SPECIES for Module 4f to: {query_species}")
+
+    elif module_name == "04g_card":
+        spatial_rds_path = params.get("spatial_data_rds_path")
+        if not (spatial_rds_path and os.path.exists(spatial_rds_path)):
+            error_msg = f"ERROR: Spatial data RDS file path for CARD (module 04g) is not set or invalid in params.json: '{spatial_rds_path}'."
+            print(error_msg)
+            try:
+                with open(log_file_path, 'a', encoding='utf-8', errors='replace') as lf: lf.write(f"\nOrchestrator Error: {error_msg}\n")
+            except IOError: pass
+            return False
+        env["IMPACT_SC_SPATIAL_RDS_PATH"] = str(spatial_rds_path)
+        print(f"Setting IMPACT_SC_SPATIAL_RDS_PATH for Module 4g to: {spatial_rds_path}")
+
 
     elif module_name == "04d_ucell_scores":
         msigdb_category = params.get("msigdb_category", "H")
-        env["IMPACT_SC_MSIGDB_CATEGORY"] = msigdb_category
+        env["IMPACT_SC_MSIGDB_CATEGORY"] = str(msigdb_category)
         print(f"Setting IMPACT_SC_MSIGDB_CATEGORY for Module 4d to: '{msigdb_category}'")
 
         ucell_plot_pathway_name = params.get("ucell_plot_pathway_name", "")
-        env["IMPACT_SC_UCELL_PLOT_PATHWAY_NAME"] = ucell_plot_pathway_name
+        env["IMPACT_SC_UCELL_PLOT_PATHWAY_NAME"] = str(ucell_plot_pathway_name)
         print(f"Setting IMPACT_SC_UCELL_PLOT_PATHWAY_NAME for Module 4d to: '{ucell_plot_pathway_name if ucell_plot_pathway_name else 'empty (plot first)'}'")
 
     elif module_name == "04e_pseudotime": 
         palantir_start_cell = params.get("conditional_paths", {}).get("palantir_start_cell")
-        env["IMPACT_SC_PALANTIR_START_CELL"] = palantir_start_cell if palantir_start_cell else ""
+        env["IMPACT_SC_PALANTIR_START_CELL"] = str(palantir_start_cell) if palantir_start_cell else ""
         if palantir_start_cell: print(f"Setting IMPACT_SC_PALANTIR_START_CELL: {palantir_start_cell}")
         else: print("Warning: palantir_start_cell not set for Pseudotime.")
 
-    # elif module_name == "04f_query_projection":  # TEMPORARILY DISABLED
-    #     query_rds_path = params.get("conditional_paths", {}).get("query_rds_path")
-    #     if query_rds_path and os.path.exists(query_rds_path):
-    #         env["IMPACT_SC_QUERY_RDS_PATH"] = query_rds_path
-    #         print(f"Setting IMPACT_SC_QUERY_RDS_PATH for Module 04f to: {query_rds_path}")
-    #     else:
-    #         env["IMPACT_SC_QUERY_RDS_PATH"] = ""
-    #         print(f"Warning: query_rds_path ('{query_rds_path}') for Module 04f not set or invalid. R script might skip or fail.")
-    #     
-    #     query_species = params.get("conditional_paths", {}).get("query_species")
-    #     env["IMPACT_SC_QUERY_SPECIES"] = query_species if query_species else params.get("species", "human")
-    #     if query_species: print(f"Setting IMPACT_SC_QUERY_SPECIES: {query_species}")
-    #     else: print(f"Warning: query_species not set for Query Projection. Defaulting to main dataset species: {env['IMPACT_SC_QUERY_SPECIES']}")
+    elif module_name == "04h_cell_chat":
+        source_groups = params.get("cellchat_source_groups", "")
+        target_groups = params.get("cellchat_target_groups", "")
+        liana_method = params.get("liana_method", "logfc") # Default to 'logfc' if not specified
+        
+        if not source_groups or not target_groups:
+            error_msg = f"ERROR: Source or Target groups for LIANA (module 04h) are not defined in params.json."
+            print(error_msg)
+            try:
+                with open(log_file_path, 'a', encoding='utf-8', errors='replace') as lf: lf.write(f"\nOrchestrator Error: {error_msg}\n")
+            except IOError: pass
+            return False # Fail the module
+        
+        env["IMPACT_SC_CELLCHAT_SOURCE_GROUPS"] = str(source_groups)
+        env["IMPACT_SC_CELLCHAT_TARGET_GROUPS"] = str(target_groups)
+        env["IMPACT_SC_LIANA_METHOD"] = str(liana_method)
+
+        print(f"Setting environment variables for module {module_name}:")
+        print(f"  IMPACT_SC_CELLCHAT_SOURCE_GROUPS = {env['IMPACT_SC_CELLCHAT_SOURCE_GROUPS']}")
+        print(f"  IMPACT_SC_CELLCHAT_TARGET_GROUPS = {env['IMPACT_SC_CELLCHAT_TARGET_GROUPS']}")
+        print(f"  IMPACT_SC_LIANA_METHOD = {env['IMPACT_SC_LIANA_METHOD']}")
 
     # --- Script execution logic ---
     stdout_data = None
@@ -148,11 +243,11 @@ def run_script(script_path: str, script_type: str, params: dict, module_name: st
     try:
         with open(log_file_path, 'w', encoding='utf-8', errors='replace') as log_file:
             cmd = []
-            cwd_to_use = os.getcwd() 
+            cwd_to_use = os.getcwd()
 
             if script_type == "R":
                 rscript_exe_from_params = params.get("rscript_executable_path")
-                env_name_for_r = None 
+                env_name_for_r = None
 
                 if rscript_exe_from_params:
                     norm_path = os.path.normpath(rscript_exe_from_params)
@@ -171,7 +266,7 @@ def run_script(script_path: str, script_type: str, params: dict, module_name: st
                         except ValueError:
                             print(f"Warning: 'envs' directory not found in Rscript path, cannot derive Conda env name: {rscript_exe_from_params}")
                     else:
-                        print(f"Info: Rscript path '{rscript_exe_from_params}' does not appear to be a standard Conda env path. Will attempt direct execution.")
+                        print(f"Info: Rscript path '{rscript_exe_from_params}' does not appear to be a standard Conda env path. Will attempt direct execution if it's a valid file.")
                 
                 conda_exe_path = shutil.which("conda")
                 if env_name_for_r and conda_exe_path:
@@ -184,14 +279,14 @@ def run_script(script_path: str, script_type: str, params: dict, module_name: st
                     cmd = ["Rscript", script_path]
                     log_file.write(f"Warning: 'rscript_executable_path' not used or invalid, and no Conda env derived. Executing Rscript using system PATH: {' '.join(cmd)}\n")
                 else:
-                    error_msg = f"FATAL ERROR: Rscript executable not found via provided path, Conda, or system PATH. Cannot run R script: {script_path}"
+                    error_msg = f"FATAL ERROR: Rscript executable not found via provided path ('{rscript_exe_from_params}'), Conda, or system PATH. Cannot run R script: {script_path}"
                     print(error_msg)
                     log_file.write(f"{error_msg}\n")
                     return False
                 cwd_to_use = params.get("input_r_scripts_dir", os.getcwd())
 
             elif script_type == "python":
-                target_conda_env_python = "impact_sc" 
+                target_conda_env_python = "impact_sc"
                 conda_exe = shutil.which("conda")
 
                 if conda_exe:
@@ -211,12 +306,10 @@ def run_script(script_path: str, script_type: str, params: dict, module_name: st
                 return False
 
             log_file.write(f"Working directory: {cwd_to_use}\n\n")
-            log_file.flush() 
+            log_file.flush()
 
-            # Special handling for C2S script to show real-time progress
             if module_name == "02b_c2s":
-                print(f"🚀 Running {module_name} with live progress monitoring...")
-                # For C2S, show real-time output while also logging
+                print(f"Running {module_name} with live progress monitoring...")
                 process = subprocess.Popen(cmd, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, 
                                          env=env, cwd=cwd_to_use, text=True, encoding='utf-8', 
                                          errors='replace', bufsize=1, universal_newlines=True)
@@ -225,7 +318,7 @@ def run_script(script_path: str, script_type: str, params: dict, module_name: st
                 for line in iter(process.stdout.readline, ''):
                     line = line.rstrip()
                     if line:
-                        print(line)  # Show real-time progress
+                        print(line)
                         output_lines.append(line)
                         log_file.write(line + '\n')
                         log_file.flush()
@@ -234,12 +327,11 @@ def run_script(script_path: str, script_type: str, params: dict, module_name: st
                 stdout_data = '\n'.join(output_lines)
                 stderr_data = ""
             else:
-                # Normal execution for other scripts
                 process = subprocess.Popen(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE, 
                                          env=env, cwd=cwd_to_use, text=True, encoding='utf-8', errors='replace')
                 stdout_data, stderr_data = process.communicate()
 
-            if stdout_data and module_name != "02b_c2s":  # Already logged for C2S above
+            if stdout_data and module_name != "02b_c2s": 
                 log_file.write("\n--- stdout ---\n")
                 log_file.write(stdout_data)
             if stderr_data:
@@ -256,7 +348,7 @@ def run_script(script_path: str, script_type: str, params: dict, module_name: st
                 log_file.write(f"\nError: {module_name} ({base_script_name}) failed. Return code: {process.returncode}.\n")
                 if script_type == "python" and conda_exe:
                     full_output = (stdout_data or "") + (stderr_data or "")
-                    if "No such environment" in full_output:
+                    if "No such environment" in full_output or "EnvironmentLocationNotFound" in full_output:
                          log_file.write(f"\nPotential issue: The Conda environment '{target_conda_env_python}' might not exist or is not accessible.\n")
                 return False
 
@@ -266,8 +358,15 @@ def run_script(script_path: str, script_type: str, params: dict, module_name: st
         try:
             with open(log_file_path, 'a', encoding='utf-8', errors='replace') as log_file_append:
                 log_file_append.write(f"\nPython orchestrator fatal error: Command not found - {e.filename}: {e.strerror}\n")
-        except Exception: 
-            pass
+        except Exception: pass
+        return False
+    except TypeError as e: # Catch the specific error
+        error_msg = f"Fatal error running {module_name} ({base_script_name}): {e}. This usually means a non-string value was passed as an environment variable."
+        print(error_msg)
+        try:
+            with open(log_file_path, 'a', encoding='utf-8', errors='replace') as log_file_append:
+                log_file_append.write(f"\nPython orchestrator fatal error: {e}\n")
+        except Exception: pass
         return False
     except Exception as e:
         error_msg = f"Fatal error running {module_name} ({base_script_name}): {e}"
@@ -275,9 +374,9 @@ def run_script(script_path: str, script_type: str, params: dict, module_name: st
         try:
             with open(log_file_path, 'a', encoding='utf-8', errors='replace') as log_file_append:
                 log_file_append.write(f"\nPython orchestrator fatal error: {e}\n")
-        except Exception:
-            pass
+        except Exception: pass
         return False
+
 
 def main():
     if len(sys.argv) != 2:
@@ -352,7 +451,9 @@ def main():
         "04c_decoupler": ("R", "04c_decoupler.R"),
         "04d_ucell_scores": ("R", "04d_ucell_scores.R"),
         "04e_pseudotime": ("R", "04e_pseudotime.R"),
-        # "04f_query_projection": ("R", "04f_query_projection.R")  # TEMPORARILY DISABLED
+        "04f_query_projection": ("R", "04f_query_projection.R"),
+        "04g_card": ("R", "04g_card.R"),
+        "04h_cell_chat": ("R", "04h_cell_chat.R") # Renamed module
     }
 
     selected_modules = params.get("selected_modules", [])
@@ -360,11 +461,6 @@ def main():
         print("Warning: No modules selected in 'selected_modules' parameter.")
 
     for module_name in selected_modules:
-        # Temporarily skip 04f_query_projection module
-        if module_name == "04f_query_projection":
-            print(f"INFO: Module '{module_name}' is temporarily disabled. Skipping...")
-            continue
-            
         if module_name in script_map:
             script_type, script_file_name = script_map[module_name]
 
@@ -389,7 +485,7 @@ def main():
                         script_full_path = potential_path_in_scripts_subdir
                         print(f"Info: Found script {script_file_name} in 'scripts_AI' subdirectory relative to pipeline script: {script_full_path}")
                     else:
-                        print(f"Error: Script file {script_file_name} (expected at {script_full_path}, {potential_path_relative_to_pipeline}, or {potential_path_in_scripts_subdir}) for module {module_name} not found. Skipping.")
+                        print(f"Error: Script file {script_file_name} (expected at {script_full_path}, or relative to pipeline script at {potential_path_relative_to_pipeline}, or in 'scripts_AI' subdir {potential_path_in_scripts_subdir}) for module {module_name} not found. Skipping.")
                         continue
             
             if not run_script(script_full_path, script_type, params, module_name): 
