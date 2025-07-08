@@ -437,13 +437,11 @@ def setup_demo_mode(downloaded_data: Dict[str, str], rscript_executable_path: st
     """Setup demo mode using downloaded data and pre-configured parameters."""
     print("\nSetting up DEMO MODE...")
     print("Using pre-configured parameters for PBMC3k dataset.")
-    
-    include_c2s = ask_question(
-        "Include Cell2Sentence (C2S) analysis? This provides AI-powered cell type prediction but takes longer",
-        "no",
-        choices=["yes", "no"]
-    ).lower() == "yes"
 
+    # Per user request, C2S is disabled and Seurat method is used.
+    # The 'include_c2s' question is removed.
+    print("Skipping Cell2Sentence analysis and using Seurat method for annotation.")
+    
     include_cellchat = ask_question(
         "Include Cell-Cell Communication (CellChat/LIANA) analysis (Module 04h)?",
         "yes",
@@ -478,21 +476,12 @@ def setup_demo_mode(downloaded_data: Dict[str, str], rscript_executable_path: st
         print("Demo data not found! Please run './download_data.sh' to download demo data.")
         return False 
     
+    # Per user request, modules are fixed to 01, 02a, 03, 04a. CellChat is optional.
     base_modules = ["01_data_processing", "02a_harmony_c2s_prep", "03_cell_type_annotation", "04a_basic_visualization"]
-    if include_c2s:
-        print("Including Cell2Sentence analysis (slower but more comprehensive)")
-        c2s_modules = ["02b_c2s", "02c_load_c2s_result"]
-        base_modules.insert(2, c2s_modules[1])
-        base_modules.insert(2, c2s_modules[0])
-
-        params["h5ad_path_for_c2s"] = normalize_path(os.path.join(params["output_directory"], "02_module2_for_c2s.h5ad"))
-        params["c2s_model_path_or_name"] = downloaded_data.get("c2s_model", "vandijklab/C2S-Pythia-410m-cell-type-prediction")
-        if downloaded_data.get("c2s_model"): print(f"Using potentially cached Cell2Sentence model (name: {params['c2s_model_path_or_name']})")
-        else: print("No cached model hint found. Will download C2S model on first use.")
-    else:
-        print("Skipping Cell2Sentence for faster demo (using traditional annotation only)")
-        params["h5ad_path_for_c2s"] = None
-        params["c2s_model_path_or_name"] = None
+    
+    # C2S is always skipped in this modified demo mode.
+    params["h5ad_path_for_c2s"] = None
+    params["c2s_model_path_or_name"] = None
     
     if include_cellchat:
         print("Including LIANA analysis.")
@@ -506,20 +495,13 @@ def setup_demo_mode(downloaded_data: Dict[str, str], rscript_executable_path: st
 
     params["selected_modules"] = base_modules
 
-    print("Setting SingleR reference to the downloaded local file for demo.")
-    default_ref_path = normalize_path(os.path.join(pipeline_base_dir, "data", "reference", "bmcite_demo.rds"))
-    
-    if os.path.exists(default_ref_path):
-        params["local_singler_ref_path"] = default_ref_path
-        params["local_singler_ref_label_col"] = "celltype.l1"
-        print(f"Using local reference for demo: {default_ref_path}")
-    else:
-        print(f"CRITICAL ERROR for Demo Mode: The default reference file was not found at {default_ref_path}")
-        print("Please run './download_data.sh' to download the required data.")
-        return False
+    # Per user request, using Seurat method, so SingleR reference is not needed.
+    print("Using 'seurat' for annotation method. No external reference file is needed.")
+    params["local_singler_ref_path"] = None
+    params["local_singler_ref_label_col"] = None
 
-    params["annotation_method"] = "singler"
-    params["final_cell_type_source"] = "singler"
+    params["annotation_method"] = "seurat"
+    params["final_cell_type_source"] = "seurat"
     params["cellama_temperature"] = 0.0
     params["ollama_model_name"] = OLLAMA_MODEL_NAME_DEFAULT
 
