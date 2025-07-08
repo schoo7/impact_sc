@@ -247,6 +247,9 @@ if (sum(is.na(obj$celltype_final), na.rm=TRUE) == ncol(obj)) {
     print(table(obj$celltype_final, useNA = "ifany"))
 }
 
+# Unify variable name as requested
+obj$cell_type <- obj$celltype_final
+message("Unified cell type variable created: 'cell_type'")
 
 # Save the final annotated Seurat object
 module3_final_annotated_path <- file.path(base_output_path, "03_module3_final_annotated.RDS")
