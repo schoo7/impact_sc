@@ -277,16 +277,15 @@ conda --version
 ```
 </details>
 
-#### **Optional: Ollama AI Enhancement**
-```bash
-# Download from: [https://ollama.ai/download](https://ollama.ai/download)
-ollama --version
-ollama pull gemma2:9b  # Install recommended model
-```
+---
+
+#### Step 2: Download Ollama
+
+**Install R (Recommended: R 4.2.3)** from: https://ollama.com
 
 ---
 
-### Step 2: Verification
+### Step 3: Verification
 
 After running the main installation script (`install_dependencies.sh` or the platform-specific version), you can verify that the core components are installed correctly.
 
