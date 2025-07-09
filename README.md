@@ -196,9 +196,8 @@ xcode-select --install
 ```
 
 #### **1.3 Install R**
-```bash
+
 **Install R (Recommended: R 4.2.3)** from: https://cran.r-project.org/bin/macosx/big-sur-arm64/base/
-```
 
 #### **1.4 Install Build Tools**
 ```bash
