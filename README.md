@@ -157,9 +157,9 @@ IMPACT-sc consists of three main components:
 - **IMPORTANT**: Run Git Bash as Administrator for installations
 
 #### **1.2 Install R and Rtools**
-1. **Install R** from: https://cran.r-project.org/bin/windows/base/
+1. **Install R (Recommended: R 4.2.3)** from: https://cran.r-project.org/bin/windows/base/old/
 2. **Install Rtools** (CRITICAL): https://cran.r-project.org/bin/windows/Rtools/
-   - Choose version matching your R (e.g., Rtools43 for R 4.3.x)
+   - Choose version matching your R (e.g., Rtools42 for R 4.2.x)
    - **Check "Add to PATH" during installation**
 
 #### **1.3 Install Conda**
@@ -197,18 +197,17 @@ xcode-select --install
 
 #### **1.3 Install R**
 ```bash
-# Option A: Homebrew (recommended)
-brew install r
-
-# Option B: Download from [https://cran.r-project.org/bin/macosx/](https://cran.r-project.org/bin/macosx/)
+**Install R (Recommended: R 4.2.3)** from: https://cran.r-project.org/bin/macosx/big-sur-arm64/base/
 ```
 
 #### **1.4 Install Build Tools**
 ```bash
-brew install cmake pkg-config gfortran
+brew install gcc libxml2 libgit2 udunits harfbuzz fribidi freetype pkg-config cmake openssl@3 openjdk gdal proj geos imagemagick@6
 
 # For Apple Silicon only
 brew install llvm libomp
+
+export PKG_CONFIG_PATH=/opt/homebrew/opt/imagemagick@6/lib/pkgconfig
 ```
 
 #### **1.5 Install Conda**
