@@ -35,7 +35,7 @@
 
 ---
 
-## 🎯 Demo Mode vs Custom Mode
+## 🎯 Mode Selection
 
 ### **🎯 Demo Mode** (Recommended for beginners)
 
@@ -56,21 +56,31 @@
 * **Full control**: Select specific modules and customize all parameters
 * **Data validation**: Checks file existence and provides helpful warnings
 
-## 💡 Smart Data Integration
+### **🤖 AI Mode** (AI-assisted analysis with minimal effort)
 
-The interactive setup now automatically:
+* **Natural language input**: Describe your data in natural language 
+* **AI-guided parameter setup**: Automatically configures steps and model selection
+* **Explainable suggestions**: Provides transparent rationale for selection
+* **Interactive refinement**: Confirm whether satisfied with the configuration
+
+## 💡 Smart Interactive Setup
 
 1. **Detects Downloaded Data**:
-   * ✅ Demo data at `data/demo/`
-   * ✅ Cached AI models at `data/models/`
-   * ✅ Reference data at `data/reference/`
+   * Demo data at `data/demo/`
+   * Cached AI models at `data/models/`
+   * Reference data at `data/reference/`
 
 2. **Provides Intelligent Defaults**:
-   * Uses cached Cell2Sentence model (no re-download)
-   * Suggests downloaded reference data for SingleR
-   * Auto-configures paths based on available data
+   * Auto-configures paths 
+   * Standard default setup
+   * Automated data discovery
+  
+3. **Includes Diverse options available**:
+   * Flexible cell type annotation strategies
+   * User-driven tool selection
+   * Fine-grained control within tools
 
-3. **Validates Data Availability**:
+4. **Validates Data Availability**:
    * Warns when required files are missing
    * Provides fallback to online resources when possible
    * Clear error messages for troubleshooting
@@ -92,14 +102,14 @@ The `download_data.sh` script provides automated downloading of all required dat
 * **Path**: `data/models/`
 
 ### **3. Reference Data**
-* **Dataset**: `HumanPrimaryCellAtlasData` from celldex
+* **Dataset**: `bmcite_demo` data
 * **Format**: RDS (R data object)
-* **Size**: ~1.2GB
-* **Path**: `data/reference/HumanPrimaryCellAtlasData.rds`
+* **Size**: ~200MB
+* **Path**: `data/reference/bmcite_demo.rds`
 
 ### **Features**:
 * ✅ Automatic resume for interrupted downloads
-* ✅ Disk space verification (requires 5GB minimum)
+* ✅ Disk space verification (requires 2GB minimum)
 * ✅ Cross-platform support (wget/curl fallback)
 * ✅ Comprehensive logging (`download_data.log`)
 
