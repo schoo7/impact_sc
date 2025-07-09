@@ -172,14 +172,7 @@ IMPACT-sc consists of three main components:
 3. Ensure **'Beta: Use Unicode UTF-8' is UNCHECKED**
 4. Set locale to **'English (United States)'**
 5. **RESTART your computer** (required for R packages)
-
-**Verify Installation:**
-```bash
-# In Git Bash
-Rscript --version
-make --version  # Should work if Rtools installed correctly
-conda --version
-```
+   
 </details>
 
 <details>
@@ -289,7 +282,7 @@ After running the main installation script (`install_dependencies.sh` or the pla
 
 **Test R Installation:**
 ```bash
-Rscript -e 'library(Seurat); cat("✅ R installed successfully!\n")'
+Rscript -e 'library(Seurat); library(CARD) cat("✅ R installed successfully!\n")'
 ```
 
 **Test Python Environment:**
@@ -297,8 +290,20 @@ Rscript -e 'library(Seurat); cat("✅ R installed successfully!\n")'
 conda activate impact_sc
 python -c "
 import scanpy as sc
+import cell2sentence
 print('✅ Python installed successfully!')
 print(f'Scanpy version: {sc.__version__}')
+"
+```
+
+**Test Model Installation:**
+```bash
+conda activate impact_sc
+python -c "
+from transformers import pipeline
+print('Attempting to load the model...')
+pipe = pipeline('text-generation', model='vandijklab/C2S-Pythia-410m-cell-type-prediction')
+print('✅ Model loaded successfully!')
 "
 ```
 
