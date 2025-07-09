@@ -8,7 +8,7 @@
 
 ---
 
-## Complete Installation Workflow
+## ⏬Complete Installation Workflow
 
 🪟 Windows & 🍎 macOS 
 （We strongly recommend completing the Installation Guide before using）
@@ -386,6 +386,7 @@ Once the `impact_sc_params.json` file is generated, you can start the pipeline:
 python run_impact_sc_pipeline.py /path/to/output/impact_sc_params.json
 ```
 This will execute the modules you selected in the order you specified.
+
 ---
 
 ## 📊 Available Analysis Modules
