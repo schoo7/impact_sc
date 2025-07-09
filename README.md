@@ -8,7 +8,7 @@
 
 ---
 
-### Complete Installation Workflow
+## Complete Installation Workflow
 
 🪟 Windows & 🍎 macOS 
 （We strongly recommend completing the Installation Guide before using）
@@ -32,103 +32,6 @@
     python interactive_setup.py  # Recommended demo for first-time users
     python run_impact_sc_pipeline.py [path_to_params.json] # Runs the pipeline with the generated parameters file
     ```
-
----
-
-## 🎯 Mode Selection
-
-### **🎯 Demo Mode** (Recommended for beginners)
-
-* **One-click setup**: Pre-configured parameters for PBMC3k dataset
-* **Automatic data detection**: Uses downloaded demo data, models, and references
-* **Quick testing**: Runs core modules (data processing, cell annotation, visualization)
-* **No user input required**: All paths and parameters automatically set
-
-**Demo includes**:
-* PBMC3k dataset (3,000 cells from 10x Genomics)
-* Automated cell type clustering 
-* Optimized gene markers for immune cell visualization
-
-### **⚙️ Custom Mode** (For experienced users)
-
-* **Flexible configuration**: Use your own datasets and parameters
-* **Smart defaults**: Downloaded data used as suggestions when available
-* **Full control**: Select specific modules and customize all parameters
-* **Data validation**: Checks file existence and provides helpful warnings
-
-### **🤖 AI Mode** (AI-assisted analysis with minimal effort)
-
-* **Natural language input**: Describe your data in natural language 
-* **AI-guided parameter setup**: Automatically configures steps and model selection
-* **Explainable suggestions**: Provides transparent rationale for selection
-* **Interactive refinement**: Confirm whether satisfied with the configuration
-
-## 💡 Smart Interactive Setup
-
-1. **Detects Downloaded Data**:
-   * Demo data at `data/demo/`
-   * Cached AI models at `data/models/`
-   * Reference data at `data/reference/`
-
-2. **Provides Intelligent Defaults**:
-   * Auto-configures paths 
-   * Standard default setup
-   * Automated data discovery
-  
-3. **Includes Diverse options available**:
-   * Flexible cell type annotation strategies
-   * User-driven tool selection
-   * Fine-grained control within tools
-
-4. **Validates Data Availability**:
-   * Warns when required files are missing
-   * Provides fallback to online resources when possible
-   * Clear error messages for troubleshooting
-
-## 📥 Data Download System
-
-The `download_data.sh` script provides automated downloading of all required data:
-
-### **1. Demo Data**
-* **Source**: 10x Genomics PBMC3k dataset
-* **Format**: Filtered gene-barcode matrices (HDF5)
-* **Size**: ~1.8MB (compressed), ~19MB (uncompressed)
-* **Path**: `data/demo/filtered_gene_bc_matrices/`
-
-### **2. AI Models**
-* **Model**: `vandijklab/C2S-Pythia-410m-cell-type-prediction`
-* **Framework**: PyTorch (via HuggingFace Transformers)
-* **Size**: ~1.5GB
-* **Path**: `data/models/`
-
-### **3. Reference Data**
-* **Dataset**: `bmcite_demo` data
-* **Format**: RDS (R data object)
-* **Size**: ~200MB
-* **Path**: `data/reference/bmcite_demo.rds`
-
-### **Features**:
-* ✅ Automatic resume for interrupted downloads
-* ✅ Disk space verification (requires 2GB minimum)
-* ✅ Cross-platform support (wget/curl fallback)
-* ✅ Comprehensive logging (`download_data.log`)
-
-## 📋 Overview
-IMPACT-sc consists of three main components:
-1. **Dependency Installation** - Set up R and Python environments
-2. **Interactive Configuration** - Generate analysis parameters
-3. **Pipeline Execution** - Run selected analysis modules
-
-### Key Features:
-* **Data Processing**: QC, filtering, normalization
-* **Batch Correction**: Harmony integration
-* **Cell Type Annotation**: Seurat, SingleR, Cell2Sentence
-* **Visualization**: UMAP, tSNE, feature plots
-* **Differential Expression**: DGE and GSEA analysis
-* **Pathway Analysis**: DecoupleR, PROGENy, UCell
-* **Advanced Analysis**: Pseudotime, query projection
-
-**Supported:** Human & Mouse | Windows & macOS (including Apple Silicon) | R + Python integration
 
 ---
 
@@ -303,6 +206,107 @@ print('✅ Model loaded successfully!')
 
 ---
 
+## 🎯 Mode Selection
+
+### **🎯 Demo Mode** (Recommended for beginners)
+
+* **One-click setup**: Pre-configured parameters for PBMC3k dataset
+* **Automatic data detection**: Uses downloaded demo data, models, and references
+* **Quick testing**: Runs core modules (data processing, cell annotation, visualization)
+* **No user input required**: All paths and parameters automatically set
+
+**Demo includes**:
+* PBMC3k dataset (3,000 cells from 10x Genomics)
+* Automated cell type clustering 
+* Optimized gene markers for immune cell visualization
+
+### **⚙️ Custom Mode** (For experienced users)
+
+* **Flexible configuration**: Use your own datasets and parameters
+* **Smart defaults**: Downloaded data used as suggestions when available
+* **Full control**: Select specific modules and customize all parameters
+* **Data validation**: Checks file existence and provides helpful warnings
+
+### **🤖 AI Mode** (AI-assisted analysis with minimal effort)
+
+* **Natural language input**: Describe your data in natural language 
+* **AI-guided parameter setup**: Automatically configures steps and model selection
+* **Explainable suggestions**: Provides transparent rationale for selection
+* **Interactive refinement**: Confirm whether satisfied with the configuration
+
+---
+
+## 💡 Smart Interactive Setup
+
+1. **Detects Downloaded Data**:
+   * Demo data at `data/demo/`
+   * Cached AI models at `data/models/`
+   * Reference data at `data/reference/`
+
+2. **Provides Intelligent Defaults**:
+   * Auto-configures paths 
+   * Standard default setup
+   * Automated data discovery
+  
+3. **Includes Diverse options available**:
+   * Flexible cell type annotation strategies
+   * User-driven tool selection
+   * Fine-grained control within tools
+
+4. **Validates Data Availability**:
+   * Warns when required files are missing
+   * Provides fallback to online resources when possible
+   * Clear error messages for troubleshooting
+
+---
+
+## 📥 Data Download System
+
+The `download_data.sh` script provides automated downloading of all required data:
+
+### **1. Demo Data**
+* **Source**: 10x Genomics PBMC3k dataset
+* **Format**: Filtered gene-barcode matrices (HDF5)
+* **Size**: ~1.8MB (compressed), ~19MB (uncompressed)
+* **Path**: `data/demo/filtered_gene_bc_matrices/`
+
+### **2. AI Models**
+* **Model**: `vandijklab/C2S-Pythia-410m-cell-type-prediction`
+* **Framework**: PyTorch (via HuggingFace Transformers)
+* **Size**: ~1.5GB
+* **Path**: `data/models/`
+
+### **3. Reference Data**
+* **Dataset**: `bmcite_demo` data
+* **Format**: RDS (R data object)
+* **Size**: ~200MB
+* **Path**: `data/reference/bmcite_demo.rds`
+
+### **Features**:
+* ✅ Automatic resume for interrupted downloads
+* ✅ Disk space verification (requires 2GB minimum)
+* ✅ Cross-platform support (wget/curl fallback)
+* ✅ Comprehensive logging (`download_data.log`)
+
+## 📋 Overview
+IMPACT-sc consists of three main components:
+1. **Dependency Installation** - Set up R and Python environments
+2. **Interactive Configuration** - Generate analysis parameters
+3. **Pipeline Execution** - Run selected analysis modules
+
+### Key Features:
+* **Data Processing**: QC, filtering, normalization
+* **Batch Correction**: Harmony integration
+* **Cell Type Annotation**: Seurat, SingleR, Cell2Sentence
+* **Visualization**: UMAP, tSNE, feature plots
+* **Differential Expression**: DGE and GSEA analysis
+* **Pathway Analysis**: DecoupleR, PROGENy, UCell
+* **Advanced Analysis**: Pseudotime, query projection
+
+**Supported:** Human & Mouse | Windows & macOS (including Apple Silicon) | R + Python integration
+
+---
+
 ## 🔧 Configuration and Usage
 
 ### Step 1: Interactive Setup
@@ -392,7 +396,7 @@ This will execute the modules you selected in the order you specified.
 | **02a_harmony_c2s_prep** | Batch correction prep | Processed data |
 | **02b_c2s** | Cell2Sentence analysis | H5AD file, C2S model |
 | **02c_load_c2s_result** | Load C2S results | C2S output |
-| **03_cell_type_annotation** | Cell type annotation | SingleR reference |
+| **03_cell_type_annotation** | Cell type annotation | reference & model |
 | **04a_basic_visualization** | UMAP, tSNE, plots | Processed data |
 | **04b_DE_gsea** | Differential expression | Annotated data |
 | **04c_decoupler** | Pathway analysis | Annotated data |
