@@ -277,13 +277,11 @@ conda --version
 ```
 </details>
 
----
 
-#### Step 2: Download Ollama
+### Step 2: Download Ollama
 
 **Install R (Recommended: R 4.2.3)** from: https://ollama.com
 
----
 
 ### Step 3: Verification
 
