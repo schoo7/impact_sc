@@ -41,13 +41,12 @@
 
 * **One-click setup**: Pre-configured parameters for PBMC3k dataset
 * **Automatic data detection**: Uses downloaded demo data, models, and references
-* **Quick testing**: Runs core modules (data processing, C2S, annotation, visualization)
+* **Quick testing**: Runs core modules (data processing, cell annotation, visualization)
 * **No user input required**: All paths and parameters automatically set
 
 **Demo includes**:
 * PBMC3k dataset (3,000 cells from 10x Genomics)
-* Cell2Sentence model for cell type prediction
-* HumanPrimaryCellAtlas reference data
+* Automated cell type clustering 
 * Optimized gene markers for immune cell visualization
 
 ### **⚙️ Custom Mode** (For experienced users)
