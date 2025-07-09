@@ -10,7 +10,6 @@
 
 ### Complete Installation Workflow
 
-<details>
 <summary><strong>🪟 Windows & 🍎 macOS</strong></summary>
 
 1.  **Clone Repository and Install Dependencies**:
@@ -33,7 +32,6 @@
     python interactive_setup.py  # Recommended demo for first-time users
     python run_impact_sc_pipeline.py [path_to_params.json] # Runs the pipeline with the generated parameters file
     ```
-</details>
 
 ---
 
