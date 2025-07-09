@@ -10,8 +10,8 @@
 
 ### Complete Installation Workflow
 
-<summary><strong>🪟 Windows & 🍎 macOS</strong></summary>
-
+🪟 Windows & 🍎 macOS 
+We strongly recommend completing the Installation Guide before using.
 1.  **Clone Repository and Install Dependencies**:
     ```bash
     git clone [https://github.com/schoo7/impact_sc.git](https://github.com/schoo7/impact_sc.git)
