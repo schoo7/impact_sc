@@ -522,7 +522,7 @@ ldconfig -p | grep -E "(curl|ssl|xml)"
 </details>
 
 ### **Common Log Files:**
-- `r_package_install_windows.log` / `r_package_install_mac.log` - R package installation
+- `r_package_install_system_r_only.log` - R package installation
 - `python_env_setup.log` - Python environment setup  
 - `*_log.txt` in output directory - Individual module logs
 
@@ -534,9 +534,6 @@ ldconfig -p | grep -E "(curl|ssl|xml)"
 impact_sc/
 ├── README.md                      # This comprehensive guide
 ├── scripts_AI/                    # Analysis modules
-├── install_r_packages_windows.sh  # Windows R installer
-├── install_r_packages_mac.sh      # macOS R installer  
-├── setup_python_environment.sh    # Python environment setup
 ├── install_dependencies.sh        # Unified cross-platform installer
 ├── download_data.sh               # Data download script
 ├── environment.yml                # Conda environment specification
