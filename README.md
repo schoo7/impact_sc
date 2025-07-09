@@ -280,7 +280,7 @@ conda --version
 
 ### Step 2: Download Ollama
 
-**Install R (Recommended: R 4.2.3)** from: https://ollama.com
+**Install Ollama** from: https://ollama.com
 
 
 ### Step 3: Verification
@@ -288,25 +288,16 @@ conda --version
 After running the main installation script (`install_dependencies.sh` or the platform-specific version), you can verify that the core components are installed correctly.
 
 **Test R Installation:**
-export PATH="/Your Rscript path:$PATH"
 ```bash
-Rscript -e "
-library(Seurat)
-library(SingleR) 
-library(ggplot2)
-cat('✅ R packages loaded successfully!\n')
-cat('Seurat version:', as.character(packageVersion('Seurat')), '\n')
-"
+Rscript -e 'library(Seurat); cat("✅ R installed successfully!\n")'
 ```
 
 **Test Python Environment:**
 ```bash
 conda activate impact_sc
 python -c "
-import pandas as pd
 import scanpy as sc
-import cell2sentence
-print('✅ All Python packages installed successfully!')
+print('✅ Python installed successfully!')
 print(f'Scanpy version: {sc.__version__}')
 "
 ```
