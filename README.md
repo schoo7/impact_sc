@@ -113,19 +113,6 @@ The `download_data.sh` script provides automated downloading of all required dat
 * ✅ Cross-platform support (wget/curl fallback)
 * ✅ Comprehensive logging (`download_data.log`)
 
-## 🔍 Verification Script
-
-The `test_data_download.py` script checks:
-
-1. **Download Tools**: Git
-2. **Model Access**: Transformers library and model availability
-3. **R Packages**: See the Test R Installation section
-
-Run verification:
-```bash
-python test_data_download.py
-```
-
 ## 📋 Overview
 IMPACT-sc consists of three main components:
 1. **Dependency Installation** - Set up R and Python environments
@@ -172,7 +159,14 @@ IMPACT-sc consists of three main components:
 3. Ensure **'Beta: Use Unicode UTF-8' is UNCHECKED**
 4. Set locale to **'English (United States)'**
 5. **RESTART your computer** (required for R packages)
-   
+
+**Verify Installation:**
+```bash
+# In Git Bash
+Rscript --version
+make --version  # Should work if Rtools installed correctly
+conda --version
+```
 </details>
 
 <details>
