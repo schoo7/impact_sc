@@ -171,6 +171,7 @@ conda --version
 ### Step 2: Download Ollama
 
 **Install Ollama** from: https://ollama.com
+
 **Choose your Ollama model**
 ```bash
 ollama run llama3.1
