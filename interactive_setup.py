@@ -137,7 +137,7 @@ def select_modules() -> List[str]:
         "1": "01_data_processing", "2a": "02a_harmony_c2s_prep", "2b": "02b_c2s",
         "2c": "02c_load_c2s_result", "3": "03_cell_type_annotation", "4a": "04a_basic_visualization",
         "4b": "04b_DE_gsea", "4c": "04c_decoupler (Requires R >= 4.3.0)", "4d": "04d_ucell_scores",
-        "4e": "04e_pseudotime", "4f": "04f_query_projection", "4g": "04g_card (Requires R >= 4.3.0)",
+        "4e": "04e_pseudotime", "4f": "04f_query_projection (Have your query data first)", "4g": "04g_card (Requires R >= 4.3.0, have your spatial data first)",
         "4h": "04h_cell_chat"
     }
     print("\nAvailable IMPACT-sc Modules:")
@@ -666,14 +666,14 @@ def setup_custom_mode(downloaded_data: Dict[str, str], rscript_executable_path: 
     if "04d_ucell_scores" in params["selected_modules"]:
         print("\n--- UCell Gene Scores (Module 04d) Specific Inputs ---")
         params["msigdb_category"] = ask_question(f"Enter MSigDB category for UCell (e.g., H, C2, C5).", "H").upper()
-        params["ucell_plot_pathway_name"] = ask_question("Enter specific pathway name to plot for UCell. Leave empty for first.", "")
+        params["ucell_plot_pathway_name"] = ask_question("Enter specific pathway name to plot for UCell. Leave empty for first.", "HALLMARK_APOPTOSIS")
     else:
         params["msigdb_category"], params["ucell_plot_pathway_name"] = "H", ""
     if "04h_cell_chat" in params["selected_modules"]:
         print("\n--- Cell-Cell Communication (Module 04h) Specific Inputs ---")
-        params["cellchat_source_groups"] = ask_question("Enter the source cell groups/clusters", "")
-        params["cellchat_target_groups"] = ask_question("Enter the target cell groups/clusters", "")
-        params["liana_method"] = ask_question(f"Enter LIANA method(s)", "logfc", ["natmi", "connectome", "logfc", "sca", "cellphonedb"])
+        params["cellchat_source_groups"] = ask_question("Enter the source cell groups/clusters", "0")
+        params["cellchat_target_groups"] = ask_question("Enter the target cell groups/clusters", "1，2")
+        params["liana_method"] = ask_question(f"Enter LIANA method(s)", "natmi,connectome,logfc,sca,cellphonedb", ["natmi", "connectome", "logfc", "sca", "cellphonedb"])
     if "03_cell_type_annotation" in params["selected_modules"] and params.get("annotation_method") == "singler":
         print("\n--- SingleR Reference Configuration (Module 03) ---")
         ref_suggestion = downloaded_data.get("default_reference_data")
@@ -688,7 +688,7 @@ def setup_custom_mode(downloaded_data: Dict[str, str], rscript_executable_path: 
         params["local_singler_ref_path"], params["local_singler_ref_label_col"] = None, None
     params["conditional_paths"] = {"query_rds_path": None, "query_species": None, "palantir_start_cell": None}
     if "04e_pseudotime" in params["selected_modules"]:
-        params["conditional_paths"]["palantir_start_cell"] = ask_question("Enter start cell for Palantir", "first_cell_barcode")
+        params["conditional_paths"]["palantir_start_cell"] = ask_question("Enter start cell for Palantir", "AAACATACAACCAC-1")
     if "04f_query_projection" in params["selected_modules"]:
         query_rds_paths = ask_for_paths("Enter full path to query.RDS file", ensure_file=True)
         if query_rds_paths: params["conditional_paths"]["query_rds_path"] = query_rds_paths[0]
