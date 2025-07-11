@@ -81,7 +81,7 @@ message(paste("Running LIANA workflow with method(s):", liana_method_str))
 liana_methods <- unlist(strsplit(liana_method_str, ","))
 
 # liana_wrap is a wrapper that runs the specified methods.
-liana_results <- liana_wrap(testdata, method = liana_methods)
+liana_results <- liana_wrap(testdata, method = liana_methods, idents_col = "cell_type")
 
 # Conditionally aggregate results ONLY if more than one method was used.
 if (length(liana_methods) > 1) {
