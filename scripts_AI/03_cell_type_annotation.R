@@ -247,7 +247,6 @@ if (sum(is.na(obj$celltype_final), na.rm=TRUE) == ncol(obj)) {
     print(table(obj$celltype_final, useNA = "ifany"))
 }
 
-# Unify variable name as requested
 obj$cell_type <- obj$celltype_final
 message("Unified cell type variable created: 'cell_type'")
 
