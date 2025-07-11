@@ -329,15 +329,18 @@ python interactive_setup.py
 --- Welcome to IMPACT-sc Interactive Setup ---
 ...
 Choose setup mode:
-  [demo] - Use demo data and auto-configure
-  [custom] - Configure your own data (default: demo): custom
+  [demo]   - Use pre-downloaded demo data for a quick test.
+  [custom] - Manually configure all parameters.
+  [ai]     - (New!) Describe your project to get help with configuration.
+ (default: demo): custom
 
 --- Rscript Executable Path ---
-Enter the full path to your Rscript executable (suggested: /opt/homebrew/bin/Rscript): <Enter to accept suggestion>
+Enter the full path to your Rscript executable (e.g., .../R-4.3.1/bin/Rscript) (suggested: /opt/homebrew/bin/Rscript): <Enter>
 Rscript executable path set to: /opt/homebrew/bin/Rscript
 
 --- Script Locations ---
 Enter the full path to the directory containing R and Python module scripts (suggested: /path/to/impact_sc/scripts_AI): <Enter>
+Using suggested path: /path/to/impact_sc/scripts_AI
 
 --- Input Data ---
 Tip: Demo data available at: /path/to/impact_sc/data/demo/filtered_gene_bc_matrices/hg19
@@ -356,6 +359,9 @@ Available IMPACT-sc Modules:
   2a: 02a_harmony_c2s_prep
   ...
 Enter the keys of modules to run, separated by commas (e.g., 1,2a,2b,2c,3,4a): 1,3,4a,4b
+
+--- Cell Type Annotation Method (Module 03) ---
+Choose annotation source for the final 'cell_type' column(seurat, c2s, singler, cellama) (default: auto): singler
 
 --- SingleR Reference Configuration (Module 03) ---
 Tip: A downloaded reference is available at: /path/to/impact_sc/data/reference/bmcite_demo.rds
@@ -379,6 +385,7 @@ Next steps:
 1. Ensure all R and Python dependencies have been correctly installed.
 2. Activate the 'impact_sc' conda environment: conda activate impact_sc
 3. Run the pipeline using: python run_impact_sc_pipeline.py output/my_pbmc_analysis/impact_sc_params.json
+
 ```
 
 
