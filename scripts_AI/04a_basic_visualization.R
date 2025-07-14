@@ -64,11 +64,11 @@ data <- tryCatch(readRDS(obj_module3_path), error=function(e){
 if(is.null(data)) stop("Failed to load data for Module 4.1.")
 message("Loaded final annotated object for Module 4.1.")
 
-data[["RNA"]] <- split(data[["RNA"]], f = data$cell_type)  # Split RNA assay by sample
-data<- JoinLayers(data) 
 data$cell_type <- as.factor(data$cell_type)
-DefaultAssay(data) <- "RNA" # "RNA" is the correct string parameter
-
+DefaultAssay(data) <- "RNA"
+celltype_counts <- table(data$cell_type)
+valid_celltypes <- names(celltype_counts[celltype_counts >= 20])
+data <- subset(data, subset = cell_type %in% valid_celltypes)
 
 # --- [MODIFICATION] ---
 # Determine reduction to use for plotting.
@@ -112,18 +112,18 @@ p_dimplot_seuratextend <- tryCatch({
     message(paste("Error generating SeuratExtend::DimPlot2:", e$message)); NULL
 })
 if (!is.null(p_dimplot_seuratextend)) {
-  ggsave(file.path(base_output_path, paste0("04a_basicviz_dimplot_seuratextend_", reduction_to_use, ".png")), plot = p_dimplot_seuratextend, width = 8, height = 7)
+  ggsave(file.path(base_output_path, paste0("04a_basicviz_dimplot_seuratextend_", reduction_to_use, ".png")), plot = p_dimplot_seuratextend, width = 16, height = 14)
   message(paste0("SeuratExtend::DimPlot2 saved using ", reduction_to_use, "."))
 }
 
 # SCpubr::do_DimPlot
 p_dimplot_scpubr <- tryCatch({
-    SCpubr::do_DimPlot(sample = data, reduction = reduction_to_use, group.by = "cell_type", plot.axes = TRUE, label = TRUE) # "cell_type" is the correct string parameter
+    SCpubr::do_DimPlot(sample = data, reduction = reduction_to_use, group.by = "cell_type", plot.axes = TRUE, label = F) # "cell_type" is the correct string parameter
 }, error = function(e) {
     message(paste("Error generating SCpubr::do_DimPlot:", e$message, "- No Seurat basic fallback will be used.")); NULL
 })
 if (!is.null(p_dimplot_scpubr)) {
-  ggsave(file.path(base_output_path, paste0("04a_basicviz_dimplot_scpubr_", reduction_to_use, ".png")), plot = p_dimplot_scpubr, width = 8, height = 7)
+  ggsave(file.path(base_output_path, paste0("04a_basicviz_dimplot_scpubr_", reduction_to_use, ".png")), plot = p_dimplot_scpubr, width = 16, height = 14)
   message(paste0("SCpubr::do_DimPlot saved using ", reduction_to_use, "."))
 }
 

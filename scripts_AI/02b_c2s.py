@@ -186,7 +186,7 @@ print(f"   • Parallel processing: ✅ Enabled")
 
 # --- Parameters & Setup ---
 SEED = 1234
-N_GENES = 200  # Increased from 5 to 200 for better representation
+N_GENES = 5  # Increased from 5 to 200 for better representation
 random.seed(SEED)
 np.random.seed(SEED)
 if torch_available:
@@ -319,88 +319,34 @@ except Exception as e:
     print("If the model was recently made private or moved from Hugging Face, this could also cause issues.")
     exit(1)
 
-print("\n🧬 Cell Embedding with Resource Monitoring")
-print(f"📊 Dataset: {adata.shape[0]} cells using {N_GENES} genes")
+print("\n🧬 Cell Embedding")
 
-def embed_cells_wrapper():
-    # Force garbage collection before heavy computation
-    gc.collect()
     
-    # Enable MPS if available for Apple Silicon
-    if torch_available and DEVICE == "mps":
-        try:
-            # Move model to MPS if possible
-            print("🍎 Attempting to use Apple Silicon MPS acceleration...")
-        except:
-            pass
-    
-    return cs.tasks.embed_cells(
+embedded_cells=cs.tasks.embed_cells(
         csdata=csdata, 
         csmodel=csmodel, 
         n_genes=N_GENES
     )
 
-embedded_cells = run_with_monitoring(
-    embed_cells_wrapper, 
-    f"Embedding {adata.shape[0]} cells"
-)
-
-if embedded_cells is None:
-    print("❌ Cell embedding failed - exiting")
-    exit(1)
-
-# Store embeddings and calculate performance
 adata.obsm["c2s_cell_embeddings"] = embedded_cells
-embedding_time = time.time() - start_time
-print(f"📈 Embedding rate: {adata.shape[0]/embedding_time:.1f} cells/second")
 
-print("\n🔬 Cell Type Prediction with Resource Monitoring")
 
-def predict_cells_wrapper():
-    # Force garbage collection
-    gc.collect()
-    
-    return cs.tasks.predict_cell_types_of_data(
+print("\n🔬 Cell Type Prediction")
+
+
+predicted_df=cs.tasks.predict_cell_types_of_data(
         csdata=csdata, 
         csmodel=csmodel, 
         n_genes=N_GENES
     )
+print(predicted_df[:5])
 
-predicted_df = run_with_monitoring(
-    predict_cells_wrapper,
-    f"Predicting cell types for {adata.shape[0]} cells"
-)
+embedded_df = pd.DataFrame(embedded_cells, index=adata.obs_names)
+print(f"Saving C2S cell embeddings to: {c2s_embeddings_csv}")
+embedded_df.to_csv(c2s_embeddings_csv)
 
-if predicted_df is None:
-    print("⚠️ Cell type prediction failed - creating empty DataFrame")
-    predicted_df = pd.DataFrame()
-
-prediction_time = time.time() - start_time
-
-# Summary statistics
-total_time = conversion_time + csdata_time + embedding_time + prediction_time
-print(f"\n📈 Performance Summary:")
-print(f"   • Data conversion: {conversion_time:.2f}s")
-print(f"   • CSData creation: {csdata_time:.2f}s") 
-print(f"   • Cell embedding: {embedding_time:.2f}s")
-print(f"   • Type prediction: {prediction_time:.2f}s")
-print(f"   • Total time: {total_time:.2f}s")
-print(f"   • Overall rate: {adata.shape[0]/total_time:.1f} cells/sec")
-
-try:
-    embedded_df = pd.DataFrame(embedded_cells, index=adata.obs_names)
-    print(f"Saving C2S cell embeddings to: {c2s_embeddings_csv}")
-    embedded_df.to_csv(c2s_embeddings_csv)
-except Exception as e:
-    print(f"Error saving cell embeddings: {e}")
-
-if not predicted_df.empty:
-    try:
-        print(f"Saving C2S predicted cell types to: {c2s_predicted_csv}")
-        predicted_df.to_csv(c2s_predicted_csv, index=False)
-    except Exception as e:
-        print(f"Error saving predicted cell types: {e}")
-else:
-    print("Skipping saving of predicted cell types as prediction failed or produced no results.")
+print(f"Saving C2S predicted cell types to: {c2s_predicted_csv}")
+predicted_df_dataframe = pd.DataFrame(predicted_df, index=adata.obs_names)
+predicted_df_dataframe.to_csv(c2s_predicted_csv)
 
 print("--- Cell2Sentence Python script finished. ---")
