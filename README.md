@@ -14,7 +14,7 @@
 （We strongly recommend completing the Installation Guide before using）
 1.  **Clone Repository and Install Dependencies**:
     ```bash
-    git clone [https://github.com/schoo7/impact_sc.git](https://github.com/schoo7/impact_sc.git)
+    git clone https://github.com/schoo7/impact_sc.git
     cd impact_sc
     chmod +x install_dependencies.sh # For mac and linux users
     ./install_dependencies.sh  #  Input your R bin path
