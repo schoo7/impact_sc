@@ -55,12 +55,12 @@ options(future.globals.maxSize = 4 * 1024^3)
 #### Module 4.5: Pseudotime Analysis with SeuratExtend (Palantir) ####
 message("Starting Module 4.5: Pseudotime Analysis (Palantir/SeuratExtend)")
 
-# Input: '04e_data_after_infercnv.RDS' (or previous if 04e skipped)
+# Input: '04d_data_after_ucell.RDS' (or previous if 04d skipped)
 # Output: Modifies 'data' object with pseudotime results, saves plots.
-obj_prev_module_path <- file.path(base_output_path, "04e_data_after_infercnv.RDS")
+obj_prev_module_path <- file.path(base_output_path, "04d_data_after_ucell.RDS")
 if (!file.exists(obj_prev_module_path)) {
   obj_prev_module_path <- file.path(base_output_path, "03_module3_final_annotated.RDS") # Fallback
-   message(paste("04e output not found, loading from:", obj_prev_module_path))
+   message(paste("04d output not found, loading from:", obj_prev_module_path))
 }
 if (!file.exists(obj_prev_module_path)) {
   stop(paste("Required input Seurat object not found at:", obj_prev_module_path))
