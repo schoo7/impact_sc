@@ -393,4 +393,4 @@ tryCatch({
   warning(paste("Error saving data object after Module 4.1:", e$message))
 })
 
-message("Finished Module 4.1: Basic Visualization")
+message("Finished Module 04a: Basic Visualization")
