@@ -276,4 +276,4 @@ tryCatch({
   warning(paste("Error saving Seurat data object after Module 4.3 to '", intermediate_rds_path_04c, "': ", e$message, sep=""))
 })
 
-message("Finished Module 4.3: DecoupleR Analysis.")
+message("Finished Module 04c: DecoupleR Analysis.")
