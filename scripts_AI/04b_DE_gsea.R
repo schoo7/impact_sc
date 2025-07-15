@@ -171,4 +171,4 @@ tryCatch({
   warning(paste("Error saving data object after Module 4.2:", e$message))
 })
 
-message("Finished Module 4.2: Differential Expression & GSEA")
+message("Finished Module 04b: Differential Expression & GSEA")
