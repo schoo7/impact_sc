@@ -182,5 +182,5 @@ p4 <- CARD.visualize.Cor(CARD_obj@Proportion_CARD, colors = NULL)
 ggsave(filename = file.path(output_dir, "04g_plot_correlation.png"), plot = p4, width = 7, height = 6, dpi = 300)
 cat("Saved correlation heatmap.\n")
 
-cat("Finished Module 04f: CARD---\n")
+cat("Finished Module 04g: CARD\n")
 
