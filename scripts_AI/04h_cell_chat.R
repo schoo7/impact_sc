@@ -181,4 +181,4 @@ tryCatch({
     message(paste("Warning: Could not generate chord diagram. Error:", e$message))
 })
 
-message("Module 04h (Cell Chat) processing complete.")
+message("Finished Module 04h: Cell Chat")
