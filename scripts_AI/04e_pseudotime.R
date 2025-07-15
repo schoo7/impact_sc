@@ -124,4 +124,4 @@ tryCatch({
   warning(paste("Error saving data object after Module 4.5:", e$message))
 })
 
-message("Finished Module 4.5: Pseudotime Analysis")
+message("Finished Module 04e: Pseudotime Analysis")
