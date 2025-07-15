@@ -222,4 +222,4 @@ tryCatch({
   warning("This error might be related to R/package version incompatibilities or object complexity.")
 })
 
-message("Finished Module 4.7: Project Query onto Embedding")
+message("Finished Module 04f: Project Query onto Embedding")
