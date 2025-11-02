@@ -1,4 +1,4 @@
-name: impact_sc
+name: SCAPE
 channels:
   - pytorch
   - conda-forge
