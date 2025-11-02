@@ -1,10 +1,6 @@
 # SCAPE: A Single-Cell Automated Platform for Exploration 
 
-<p align="center">
-  <img src="" alt="IMPACT-sc Logo" width="800"/>
-</p>
-
-**SCAPE** A Single-Cell Automated Platform for Exploration Enables Integrative and Interactive Analysis.
+**SCAPE** is a Single-Cell Automated Platform for Exploration Enables Integrative and Interactive Analysis.
 
 ---
 
