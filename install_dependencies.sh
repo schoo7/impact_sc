@@ -13,7 +13,7 @@ case "$(uname -s)" in
     *)          OS_TYPE="unknown";;
 esac
 
-echo "--- Starting IMPACT-sc R & Python Dependency Installation ($OS_TYPE Mode) ---"
+echo "--- Starting SCAPE R & Python Dependency Installation ($OS_TYPE Mode) ---"
 echo "--- R Packages will be installed into your system R environment ---"
 echo ""
 
@@ -715,10 +715,10 @@ echo ""
 
 # Python Environment Setup using Conda
 echo "========================================================================"
-echo "--- Starting Python Environment Setup for IMPACT-sc ---"
+echo "--- Starting Python Environment Setup for SCAPE ---"
 echo "========================================================================"
 echo ""
-echo "This script will attempt to create a Conda environment named 'impact_sc'"
+echo "This script will attempt to create a Conda environment named 'SCAPE'"
 echo "and install necessary Python packages."
 echo "Please ensure Conda (Anaconda/Miniconda) is installed and the 'conda' command is in your PATH."
 echo ""
@@ -732,7 +732,7 @@ fi
 echo "Found Conda: $(command -v conda)"
 conda --version
 
-ENV_NAME="impact_sc"
+ENV_NAME="SCAPE"
 PYTHON_VERSION="3.9"
 PYTHON_INSTALL_LOG="python_env_install.log"
 
@@ -803,7 +803,7 @@ echo "To use this environment, activate it before running your Python scripts:"
 echo "  conda activate $ENV_NAME"
 echo ""
 echo "Then you can run the main pipeline, for example:"
-echo "  python run_impact_sc_pipeline.py path/to/your/params.json"
+echo "  python run_SCAPE_pipeline.py path/to/your/params.json"
 echo ""
 echo "IMPORTANT REMINDERS (Recap):"
 echo "- If R packages failed, address those issues. R is often a prerequisite for parts of the pipeline."
