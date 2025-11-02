@@ -1,4 +1,4 @@
-# IMPACT-sc: Integrated Multi-Pipeline Analysis and Characterization of Single-Cell Data
+# SCAPE: A Single-Cell Automated Platform for Exploration 
 
 <p align="center">
   <img src="impact_sc_logo.png" alt="IMPACT-sc Logo" width="800"/>
