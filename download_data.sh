@@ -1,5 +1,5 @@
 #!/bin/bash
-# Data download script for IMPACT-sc
+# Data download script for SCAPE
 # Downloads demo data, models, and reference data
 
 set -euo pipefail
@@ -157,9 +157,9 @@ download_models() {
     fi
     
     # Activate the target environment
-    log "Attempting to activate impact_sc environment..."
-    conda activate impact_sc || fail "Failed to activate impact_sc environment. Ensure it was created by install_dependencies.sh and Conda is initialized correctly for this shell session."
-    log "Successfully activated impact_sc conda environment."
+    log "Attempting to activate SCAPE environment..."
+    conda activate SCAPE || fail "Failed to activate SCAPE environment. Ensure it was created by install_dependencies.sh and Conda is initialized correctly for this shell session."
+    log "Successfully activated SCAPE conda environment."
     
     # Download model using Python
     mkdir -p "$MODELS_DIR"
@@ -194,8 +194,8 @@ except Exception as e:
     " || fail "Python script for model download failed."
     
     # Deactivate conda environment
-    conda deactivate || log "Warning: Failed to deactivate impact_sc environment."
-    log "Deactivated impact_sc conda environment."
+    conda deactivate || log "Warning: Failed to deactivate SCAPE environment."
+    log "Deactivated SCAPE conda environment."
 }
 
 download_reference_data() {
@@ -302,7 +302,7 @@ verify_downloads() {
 # Clear log file at start
 >"$LOG_FILE"
 
-log "Starting IMPACT-sc data download"
+log "Starting SCAPE data download"
 log "This will download demo data, models, and reference data."
 log "Approximate total download size (can vary): ~3-5GB (some models/references can be large)."
 log "Ensure you have a stable internet connection."
@@ -323,4 +323,4 @@ log "│   ├── demo/             - Demo datasets (e.g., PBMC3k)"
 log "│   ├── models/           - Pre-trained models (e.g., Cell2Sentence)"
 log "│   └── reference/        - Reference datasets (e.g., $AZIMUTH_REF_FILE)"
 log ""
-log "You should now be able to run the IMPACT-sc pipeline with the downloaded data."
+log "You should now be able to run the SCAPE pipeline with the downloaded data."
