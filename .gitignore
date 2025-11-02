@@ -3,7 +3,7 @@ data/
 
 # Output directories
 demo_output/
-impact_output/
+SCAPE_output/
 *_output/
 
 # Downloaded files
