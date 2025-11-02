@@ -1,10 +1,10 @@
 # SCAPE: A Single-Cell Automated Platform for Exploration 
 
 <p align="center">
-  <img src="impact_sc_logo.png" alt="IMPACT-sc Logo" width="800"/>
+  <img src="" alt="IMPACT-sc Logo" width="800"/>
 </p>
 
-**IMPACT-sc** is a modular pipeline for comprehensive single-cell RNA sequencing (scRNA-seq) data analysis, integrating R and Python scripts for everything from data processing to advanced downstream analyses.
+**SCAPE** A Single-Cell Automated Platform for Exploration Enables Integrative and Interactive Analysis.
 
 ---
 
