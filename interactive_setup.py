@@ -140,7 +140,7 @@ def select_modules() -> List[str]:
         "4e": "04e_pseudotime", "4f": "04f_query_projection (Have your query data first)", "4g": "04g_card (Requires R >= 4.3.0, have your spatial data first)",
         "4h": "04h_cell_chat"
     }
-    print("\nAvailable IMPACT-sc Modules:")
+    print("\nAvailable SCAPE Modules:")
     for key, name in all_modules.items():
         print(f"  {key}: {name}")
     selected_keys_str = ask_question("Enter the keys of modules to run, separated by commas (e.g., 1,2a,2b,2c,3,4a,4h)")
@@ -308,7 +308,7 @@ Example:
 
 def select_setup_mode(downloaded_data: Dict[str, str]) -> str:
     """Ask user to select the setup mode: demo, custom, or AI-assisted."""
-    print("\n" + "="*60 + "\nIMPACT-sc Setup Mode Selection\n" + "="*60)
+    print("\n" + "="*60 + "\nSCAPE Setup Mode Selection\n" + "="*60)
     has_demo_data = downloaded_data.get("demo_data") is not None
     mode_choices, prompt_lines = ["custom", "ai"], ["Choose setup mode:", "  [custom] - Manually configure all parameters.", "  [ai]     - (New!) Describe your project to get help with configuration."]
     default_choice = "custom"
@@ -323,7 +323,7 @@ def select_setup_mode(downloaded_data: Dict[str, str]) -> str:
 
 def main():
     """Main function to drive the interactive setup."""
-    print("--- Welcome to IMPACT-sc Interactive Setup ---")
+    print("--- Welcome to SCAPE Interactive Setup ---")
     downloaded_data = check_downloaded_data()
     mode = select_setup_mode(downloaded_data)
     
@@ -706,14 +706,14 @@ def save_params(params: Dict[str, Any]) -> bool:
         if not os.path.exists(output_dir):
             os.makedirs(output_dir, exist_ok=True)
             print(f"Created output directory: {output_dir}")
-        params_path = normalize_path(os.path.join(output_dir, "impact_sc_params.json"))
+        params_path = normalize_path(os.path.join(output_dir, "SCAPE_params.json"))
         with open(params_path, 'w', encoding='utf-8') as f:
             json.dump(params, f, indent=4)
         print(f"\nParameters saved to: {params_path}")
         print(f"\n--- Setup Complete ---\nNext steps:")
         print(f"1. Ensure all dependencies are installed.")
-        print(f"2. Activate the conda environment: conda activate impact_sc")
-        print(f"3. Run the pipeline: python run_impact_sc_pipeline.py {params_path}")
+        print(f"2. Activate the conda environment: conda activate SCAPE")
+        print(f"3. Run the pipeline: python run_SCAPE_pipeline.py {params_path}")
         return True
     except (IOError, Exception) as e:
         print(f"Error saving parameters: {e}")
@@ -723,3 +723,4 @@ if __name__ == "__main__":
     if not main():
         print("Setup did not complete successfully.")
         sys.exit(1)
+
