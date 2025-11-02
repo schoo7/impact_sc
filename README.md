@@ -11,14 +11,14 @@
 1.  **Clone Repository and Install Dependencies**:
     ```bash
     git clone https://github.com/schoo7/impact_sc.git
-    cd impact_sc
+    cd SCAPE
     chmod +x install_dependencies.sh # For mac and linux users
     ./install_dependencies.sh  #  Input your R bin path
     ```
 
 2.  **Activate Environment and Download Data**:
     ```bash
-    conda activate impact_sc # Activates the Conda environment
+    conda activate SCAPE # Activates the Conda environment
     chmod +x download_data.sh # For mac and linux users
     ./download_data.sh  # Downloads demo data, models, and reference datasets (~3-5GB)
     ```
@@ -26,7 +26,7 @@
 3.  **Configure and Run Pipeline**:
     ```bash
     python interactive_setup.py  # Recommended demo for first-time users
-    python run_impact_sc_pipeline.py [path_to_params.json] # Runs the pipeline with the generated parameters file
+    python run_SCAPE_pipeline.py [path_to_params.json] # Runs the pipeline with the generated parameters file
     ```
 
 ---
@@ -184,7 +184,7 @@ Rscript -e 'library(Seurat); library(CARD) cat("✅ R installed successfully!\n"
 
 **Test Python Environment:**
 ```bash
-conda activate impact_sc
+conda activate SCAPE
 python -c "
 import scanpy as sc
 import cell2sentence
@@ -195,7 +195,7 @@ print(f'Scanpy version: {sc.__version__}')
 
 **Test Model Installation:**
 ```bash
-conda activate impact_sc
+conda activate SCAPE
 python -c "
 from transformers import pipeline
 print('Attempting to load the model...')
@@ -289,7 +289,7 @@ The `download_data.sh` script provides automated downloading of all required dat
 * ✅ Comprehensive logging (`download_data.log`)
 
 ## 📋 Overview
-IMPACT-sc consists of three main components:
+SCAPE consists of three main components:
 1. **Dependency Installation** - Set up R and Python environments
 2. **Interactive Configuration** - Generate analysis parameters
 3. **Pipeline Execution** - Run selected analysis modules
@@ -310,11 +310,11 @@ IMPACT-sc consists of three main components:
 ## 🔧 Configuration and Usage
 
 ### Step 1: Interactive Setup
-The `interactive_setup.py` script guides you through creating a `impact_sc_params.json` configuration file. This file stores all the parameters for your analysis run.
+The `interactive_setup.py` script guides you through creating a `SCAPE_params.json` configuration file. This file stores all the parameters for your analysis run.
 
 ```bash
 # Activate the conda environment first
-conda activate impact_sc
+conda activate SCAPE
 
 # Run the interactive setup script
 python interactive_setup.py
@@ -322,7 +322,7 @@ python interactive_setup.py
 
 ### Step 2: Demo Input
 ```text
---- Welcome to IMPACT-sc Interactive Setup ---
+--- Welcome to SCAPE Interactive Setup ---
 ...
 Choose setup mode:
   [demo]   - Use pre-downloaded demo data for a quick test.
@@ -335,11 +335,11 @@ Enter the full path to your Rscript executable (e.g., .../R-4.3.1/bin/Rscript) (
 Rscript executable path set to: /opt/homebrew/bin/Rscript
 
 --- Script Locations ---
-Enter the full path to the directory containing R and Python module scripts (suggested: /path/to/impact_sc/scripts_AI): <Enter>
-Using suggested path: /path/to/impact_sc/scripts_AI
+Enter the full path to the directory containing R and Python module scripts (suggested: /path/to/SCAPE/scripts_AI): <Enter>
+Using suggested path: /path/to/SCAPE/scripts_AI
 
 --- Input Data ---
-Tip: Demo data available at: /path/to/impact_sc/data/demo/filtered_gene_bc_matrices/hg19
+Tip: Demo data available at: /path/to/SCAPE/data/demo/filtered_gene_bc_matrices/hg19
 Enter the full path to your primary input scRNA-seq data file(s) (e.g., feature-barcode matrix directory...): /path/to/my_data/filtered_feature_bc_matrix
 
 Do you want to add another path? (yes/no) (default: no): no
@@ -350,7 +350,7 @@ Enter the species ('human' or 'mouse') (default: human): human
 Enter the full path for your desired output/results folder (default: demo_output): output/my_pbmc_analysis
 
 --- Module Selection ---
-Available IMPACT-sc Modules:
+Available SCAPE Modules:
   1: 01_data_processing
   2a: 02a_harmony_c2s_prep
   ...
@@ -360,7 +360,7 @@ Enter the keys of modules to run, separated by commas (e.g., 1,2a,2b,2c,3,4a): 1
 Choose annotation source for the final 'cell_type' column(seurat, c2s, singler, cellama) (default: auto): singler
 
 --- SingleR Reference Configuration (Module 03) ---
-Tip: A downloaded reference is available at: /path/to/impact_sc/data/reference/bmcite_demo.rds
+Tip: A downloaded reference is available at: /path/to/SCAPE/data/reference/bmcite_demo.rds
 Enter the full path to your local SingleR reference RDS file for human: /path/to/my_references/HumanPrimaryCellAtlasData.rds
 Enter the name of the metadata column in your reference file that contains cell type labels (default: label.main): celltype.l1
 
@@ -374,23 +374,23 @@ Group 'T_cell_markers' with genes ['CD3D', 'CD3E', 'CD8A'] added.
 Do you want to add another gene group for DotPlot? (yes/no) (default: yes): no
 
 ...
-Parameters saved to: output/my_pbmc_analysis/impact_sc_params.json
+Parameters saved to: output/my_pbmc_analysis/SCAPE_params.json
 
 --- Setup Complete ---
 Next steps:
 1. Ensure all R and Python dependencies have been correctly installed.
-2. Activate the 'impact_sc' conda environment: conda activate impact_sc
-3. Run the pipeline using: python run_impact_sc_pipeline.py output/my_pbmc_analysis/impact_sc_params.json
+2. Activate the 'SCAPE' conda environment: conda activate SCAPE
+3. Run the pipeline using: python run_SCAPE_pipeline.py output/my_pbmc_analysis/SCAPE_params.json
 
 ```
 
 
 ### Step 3: Run Pipeline
 
-Once the `impact_sc_params.json` file is generated, you can start the pipeline:
+Once the `SCAPE_params.json` file is generated, you can start the pipeline:
 
 ```bash
-python run_impact_sc_pipeline.py /path/to/output/impact_sc_params.json
+python run_SCAPE_pipeline.py /path/to/output/SCAPE_params.json
 ```
 This will execute the modules you selected in the order you specified.
 
@@ -435,7 +435,7 @@ This will execute the modules you selected in the order you specified.
 Rscript -e "Sys.which('make')"  # Should show path
 
 # Check environment
-conda info --envs  # Should show impact_sc
+conda info --envs  # Should show SCAPE
 ```
 
 **Key Requirements:**
@@ -539,20 +539,20 @@ ldconfig -p | grep -E "(curl|ssl|xml)"
 ## 📁 Project Structure
 
 ```
-impact_sc/
+SCAPE/
 ├── README.md                      # This comprehensive guide
 ├── scripts_AI/                    # Analysis modules
 ├── install_dependencies.sh        # Unified cross-platform installer
 ├── download_data.sh               # Data download script
 ├── environment.yml                # Conda environment specification
 ├── interactive_setup.py           # Configuration script
-├── run_impact_sc_pipeline.py     # Main pipeline
+├── run_SCAPE_pipeline.py     # Main pipeline
 ├── data/                          # Downloaded data (created by download_data.sh)
 │   ├── demo/                     # Demo datasets (PBMC3k)
 │   ├── models/                   # Pre-trained models (Cell2Sentence)
 │   └── reference/                # Reference data (HumanPrimaryCellAtlas)
 └── output/                        # Results (created during setup)
-    ├── impact_sc_params.json     # Configuration file
+    ├── SCAPE_params.json     # Configuration file
     ├── *_log.txt                 # Module logs
     └── results                   # Analysis outputs
 ```
@@ -598,7 +598,7 @@ impact_sc/
 
 ## 📄 Citation
 
-If you use IMPACT-sc in your research, please cite:
+If you use SCAPE in your research, please cite:
 
 ```
 [Citation information to be added]
@@ -606,7 +606,7 @@ If you use IMPACT-sc in your research, please cite:
 
 ## 🤝 Contributing
 
-We welcome contributions to the IMPACT-sc project. If you have suggestions for improvements, please open an issue or submit a pull request on our GitHub repository. We appreciate your input and collaboration!
+We welcome contributions to the SCAPE project. If you have suggestions for improvements, please open an issue or submit a pull request on our GitHub repository. We appreciate your input and collaboration!
 
 ---
 
