@@ -21,43 +21,43 @@ def run_script(script_path: str, script_type: str, params: dict, module_name: st
     # Create a copy of the current environment variables
     env = os.environ.copy()
     # Set common environment variables for scripts, ensuring all values are strings
-    env["IMPACT_SC_SPECIES"] = str(params.get("species", "human")) # Default to human if not specified
-    env["IMPACT_SC_OUTPUT_DIR"] = str(output_dir)
+    env["SCAPE_SPECIES"] = str(params.get("species", "human")) # Default to human if not specified
+    env["SCAPE_OUTPUT_DIR"] = str(output_dir)
 
     # Handle single input data path (legacy or primary)
     if params.get("input_data_paths") and len(params["input_data_paths"]) > 0:
-        env["IMPACT_SC_INPUT_DATA_PATH"] = str(params["input_data_paths"][0])
+        env["SCAPE_INPUT_DATA_PATH"] = str(params["input_data_paths"][0])
     else:
-        print(f"Warning: 'input_data_paths' is empty or not defined in params.json. Module {module_name} might fail if it requires IMPACT_SC_INPUT_DATA_PATH.")
+        print(f"Warning: 'input_data_paths' is empty or not defined in params.json. Module {module_name} might fail if it requires SCAPE_INPUT_DATA_PATH.")
 
     # Handle multiple input data paths (joined by semicolon)
     if params.get("input_data_paths"):
         # Ensure all elements are strings before joining
-        env["IMPACT_SC_INPUT_DATA_PATHS"] = ";".join(map(str, params["input_data_paths"]))
+        env["SCAPE_INPUT_DATA_PATHS"] = ";".join(map(str, params["input_data_paths"]))
 
     # --- Environment variable settings for specific modules ---
     if module_name == "01_data_processing":
         # Set QC and optional processing parameters from the interactive setup
-        env["IMPACT_SC_REMOVE_DOUBLETS"] = str(params.get("remove_doublets", False)).lower()
-        env["IMPACT_SC_REGRESS_CELL_CYCLE"] = str(params.get("regress_cell_cycle", False)).lower()
-        env["IMPACT_SC_QC_MIN_NFEATURE_RNA"] = str(params.get("qc_min_nfeature_rna", 200))
-        env["IMPACT_SC_QC_MAX_NFEATURE_RNA"] = str(params.get("qc_max_nfeature_rna", 6000))
-        env["IMPACT_SC_QC_MAX_PERCENT_MT"] = str(params.get("qc_max_percent_mt", 10))
-        env["IMPACT_SC_PCA_DIMS"] = str(params.get("pca_dims", 50))
+        env["SCAPE_REMOVE_DOUBLETS"] = str(params.get("remove_doublets", False)).lower()
+        env["SCAPE_REGRESS_CELL_CYCLE"] = str(params.get("regress_cell_cycle", False)).lower()
+        env["SCAPE_QC_MIN_NFEATURE_RNA"] = str(params.get("qc_min_nfeature_rna", 200))
+        env["SCAPE_QC_MAX_NFEATURE_RNA"] = str(params.get("qc_max_nfeature_rna", 6000))
+        env["SCAPE_QC_MAX_PERCENT_MT"] = str(params.get("qc_max_percent_mt", 10))
+        env["SCAPE_PCA_DIMS"] = str(params.get("pca_dims", 50))
         print(f"Setting environment variables for module {module_name}:")
-        print(f"  IMPACT_SC_REMOVE_DOUBLETS = {env['IMPACT_SC_REMOVE_DOUBLETS']}")
-        print(f"  IMPACT_SC_REGRESS_CELL_CYCLE = {env['IMPACT_SC_REGRESS_CELL_CYCLE']}")
-        print(f"  IMPACT_SC_QC_MIN_NFEATURE_RNA = {env['IMPACT_SC_QC_MIN_NFEATURE_RNA']}")
-        print(f"  IMPACT_SC_QC_MAX_NFEATURE_RNA = {env['IMPACT_SC_QC_MAX_NFEATURE_RNA']}")
-        print(f"  IMPACT_SC_QC_MAX_PERCENT_MT = {env['IMPACT_SC_QC_MAX_PERCENT_MT']}")
-        print(f"  IMPACT_SC_PCA_DIMS = {env['IMPACT_SC_PCA_DIMS']}")
+        print(f"  SCAPE_REMOVE_DOUBLETS = {env['SCAPE_REMOVE_DOUBLETS']}")
+        print(f"  SCAPE_REGRESS_CELL_CYCLE = {env['SCAPE_REGRESS_CELL_CYCLE']}")
+        print(f"  SCAPE_QC_MIN_NFEATURE_RNA = {env['SCAPE_QC_MIN_NFEATURE_RNA']}")
+        print(f"  SCAPE_QC_MAX_NFEATURE_RNA = {env['SCAPE_QC_MAX_NFEATURE_RNA']}")
+        print(f"  SCAPE_QC_MAX_PERCENT_MT = {env['SCAPE_QC_MAX_PERCENT_MT']}")
+        print(f"  SCAPE_PCA_DIMS = {env['SCAPE_PCA_DIMS']}")
         
     elif module_name == "02a_harmony_c2s_prep":
-        env["IMPACT_SC_CLUSTER_RESOLUTION"] = str(params.get("cluster_resolution", 0.1))
-        env["IMPACT_SC_DIMS_FOR_CLUSTERING"] = str(params.get("dims_for_clustering", 50))
+        env["SCAPE_CLUSTER_RESOLUTION"] = str(params.get("cluster_resolution", 0.1))
+        env["SCAPE_DIMS_FOR_CLUSTERING"] = str(params.get("dims_for_clustering", 50))
         print(f"Setting environment variables for module {module_name}:")
-        print(f"  IMPACT_SC_CLUSTER_RESOLUTION = {env['IMPACT_SC_CLUSTER_RESOLUTION']}")
-        print(f"  IMPACT_SC_DIMS_FOR_CLUSTERING = {env['IMPACT_SC_DIMS_FOR_CLUSTERING']}")
+        print(f"  SCAPE_CLUSTER_RESOLUTION = {env['SCAPE_CLUSTER_RESOLUTION']}")
+        print(f"  SCAPE_DIMS_FOR_CLUSTERING = {env['SCAPE_DIMS_FOR_CLUSTERING']}")
 
 
     elif module_name == "02b_c2s":
@@ -105,9 +105,9 @@ def run_script(script_path: str, script_type: str, params: dict, module_name: st
         cellama_temperature = params.get("cellama_temperature", 0.0)
         ollama_model = params.get("ollama_model_name", "gemma3:12b-it-qat")
         
-        env["IMPACT_SC_ANNOTATION_METHOD"] = str(annotation_method)
-        env["IMPACT_SC_CELLAMA_TEMPERATURE"] = str(cellama_temperature)
-        env["IMPACT_SC_OLLAMA_MODEL"] = str(ollama_model)
+        env["SCAPE_ANNOTATION_METHOD"] = str(annotation_method)
+        env["SCAPE_CELLAMA_TEMPERATURE"] = str(cellama_temperature)
+        env["SCAPE_OLLAMA_MODEL"] = str(ollama_model)
         
         print(f"Setting Annotation Method for Module 3 to: {annotation_method}")
         if annotation_method == "cellama":
@@ -117,47 +117,47 @@ def run_script(script_path: str, script_type: str, params: dict, module_name: st
         # --- Original SingleR parameters ---
         local_ref_path = params.get("local_singler_ref_path")
         if local_ref_path and isinstance(local_ref_path, str) and local_ref_path.strip():
-            env["IMPACT_SC_LOCAL_SINGLER_REF_PATH"] = str(local_ref_path)
-            print(f"Setting IMPACT_SC_LOCAL_SINGLER_REF_PATH for Module 3 to: {local_ref_path}")
+            env["SCAPE_LOCAL_SINGLER_REF_PATH"] = str(local_ref_path)
+            print(f"Setting SCAPE_LOCAL_SINGLER_REF_PATH for Module 3 to: {local_ref_path}")
         else:
-            env["IMPACT_SC_LOCAL_SINGLER_REF_PATH"] = ""
+            env["SCAPE_LOCAL_SINGLER_REF_PATH"] = ""
             if annotation_method == "singler":
                  print(f"Warning: 'local_singler_ref_path' is missing or empty in params.json. Module 3 will likely fail.")
 
         ref_label_col = params.get("local_singler_ref_label_col", "label.main")
-        env["IMPACT_SC_SINGLER_REF_LABEL_COL"] = str(ref_label_col)
-        print(f"Setting IMPACT_SC_SINGLER_REF_LABEL_COL for Module 3 to: {ref_label_col}")
+        env["SCAPE_SINGLER_REF_LABEL_COL"] = str(ref_label_col)
+        print(f"Setting SCAPE_SINGLER_REF_LABEL_COL for Module 3 to: {ref_label_col}")
 
         final_cell_type_source = params.get("final_cell_type_source")
         if final_cell_type_source:
-            env["IMPACT_SC_FINAL_CELL_TYPE_SOURCE"] = str(final_cell_type_source)
-            print(f"Setting IMPACT_SC_FINAL_CELL_TYPE_SOURCE for Module 3 to: {final_cell_type_source}")
+            env["SCAPE_FINAL_CELL_TYPE_SOURCE"] = str(final_cell_type_source)
+            print(f"Setting SCAPE_FINAL_CELL_TYPE_SOURCE for Module 3 to: {final_cell_type_source}")
         else:
-            env["IMPACT_SC_FINAL_CELL_TYPE_SOURCE"] = "auto"
+            env["SCAPE_FINAL_CELL_TYPE_SOURCE"] = "auto"
             print(f"Warning: 'final_cell_type_source' not found in params. Module 3 will use its default ('auto').")
 
     elif module_name == "04a_basic_visualization":
         reduction_method = params.get("reduction_method", "umap") # Default to umap if not set
-        env["IMPACT_SC_REDUCTION_METHOD"] = str(reduction_method)
-        print(f"Setting IMPACT_SC_REDUCTION_METHOD for Module 4a to: '{reduction_method}'")
+        env["SCAPE_REDUCTION_METHOD"] = str(reduction_method)
+        print(f"Setting SCAPE_REDUCTION_METHOD for Module 4a to: '{reduction_method}'")
 
         featureplot_genes = params.get("featureplot_genes", "")
-        env["IMPACT_SC_FEATUREPLOT_GENES"] = str(featureplot_genes)
-        print(f"Setting IMPACT_SC_FEATUREPLOT_GENES for Module 4a to: '{featureplot_genes if featureplot_genes else 'empty (skip)'}'")
+        env["SCAPE_FEATUREPLOT_GENES"] = str(featureplot_genes)
+        print(f"Setting SCAPE_FEATUREPLOT_GENES for Module 4a to: '{featureplot_genes if featureplot_genes else 'empty (skip)'}'")
 
         dotplot_gene_groups = params.get("dotplot_gene_groups", [])
         try:
             dotplot_json_str = json.dumps(dotplot_gene_groups if dotplot_gene_groups else [])
-            env["IMPACT_SC_DOTPLOT_GENES_JSON"] = dotplot_json_str
-            print(f"Setting IMPACT_SC_DOTPLOT_GENES_JSON for Module 4a to: {dotplot_json_str}")
+            env["SCAPE_DOTPLOT_GENES_JSON"] = dotplot_json_str
+            print(f"Setting SCAPE_DOTPLOT_GENES_JSON for Module 4a to: {dotplot_json_str}")
         except TypeError as e:
             print(f"Error: Could not serialize dotplot_gene_groups to JSON: {e}. Defaulting to empty JSON array.")
-            env["IMPACT_SC_DOTPLOT_GENES_JSON"] = "[]"
+            env["SCAPE_DOTPLOT_GENES_JSON"] = "[]"
         
     elif module_name == "04b_DE_gsea":
         de_gsea_plot_gene = params.get("de_gsea_plot_gene", "")
-        env["IMPACT_SC_DE_GENE"] = str(de_gsea_plot_gene)
-        print(f"Setting IMPACT_SC_DE_GENE for Module 4b to: '{de_gsea_plot_gene if de_gsea_plot_gene else 'empty (skip)'}'")
+        env["SCAPE_DE_GENE"] = str(de_gsea_plot_gene)
+        print(f"Setting SCAPE_DE_GENE for Module 4b to: '{de_gsea_plot_gene if de_gsea_plot_gene else 'empty (skip)'}'")
 
     elif module_name == "04c_decoupler":
         print("Info: For Module 4c, the R script will automatically download DecoupleR networks.")
@@ -180,10 +180,10 @@ def run_script(script_path: str, script_type: str, params: dict, module_name: st
             query_species = params.get("species", "human") # Default to reference species
             print(f"Warning: Query species not set for module 04f. Defaulting to reference species: '{query_species}'.")
 
-        env["IMPACT_SC_QUERY_RDS_PATH"] = str(query_rds_path)
-        env["IMPACT_SC_QUERY_SPECIES"] = str(query_species)
-        print(f"Setting IMPACT_SC_QUERY_RDS_PATH for Module 4f to: {query_rds_path}")
-        print(f"Setting IMPACT_SC_QUERY_SPECIES for Module 4f to: {query_species}")
+        env["SCAPE_QUERY_RDS_PATH"] = str(query_rds_path)
+        env["SCAPE_QUERY_SPECIES"] = str(query_species)
+        print(f"Setting SCAPE_QUERY_RDS_PATH for Module 4f to: {query_rds_path}")
+        print(f"Setting SCAPE_QUERY_SPECIES for Module 4f to: {query_species}")
 
     elif module_name == "04g_card":
         spatial_rds_path = params.get("spatial_data_rds_path")
@@ -194,23 +194,23 @@ def run_script(script_path: str, script_type: str, params: dict, module_name: st
                 with open(log_file_path, 'a', encoding='utf-8', errors='replace') as lf: lf.write(f"\nOrchestrator Error: {error_msg}\n")
             except IOError: pass
             return False
-        env["IMPACT_SC_SPATIAL_RDS_PATH"] = str(spatial_rds_path)
-        print(f"Setting IMPACT_SC_SPATIAL_RDS_PATH for Module 4g to: {spatial_rds_path}")
+        env["SCAPE_SPATIAL_RDS_PATH"] = str(spatial_rds_path)
+        print(f"Setting SCAPE_SPATIAL_RDS_PATH for Module 4g to: {spatial_rds_path}")
 
 
     elif module_name == "04d_ucell_scores":
         msigdb_category = params.get("msigdb_category", "H")
-        env["IMPACT_SC_MSIGDB_CATEGORY"] = str(msigdb_category)
-        print(f"Setting IMPACT_SC_MSIGDB_CATEGORY for Module 4d to: '{msigdb_category}'")
+        env["SCAPE_MSIGDB_CATEGORY"] = str(msigdb_category)
+        print(f"Setting SCAPE_MSIGDB_CATEGORY for Module 4d to: '{msigdb_category}'")
 
         ucell_plot_pathway_name = params.get("ucell_plot_pathway_name", "")
-        env["IMPACT_SC_UCELL_PLOT_PATHWAY_NAME"] = str(ucell_plot_pathway_name)
-        print(f"Setting IMPACT_SC_UCELL_PLOT_PATHWAY_NAME for Module 4d to: '{ucell_plot_pathway_name if ucell_plot_pathway_name else 'empty (plot first)'}'")
+        env["SCAPE_UCELL_PLOT_PATHWAY_NAME"] = str(ucell_plot_pathway_name)
+        print(f"Setting SCAPE_UCELL_PLOT_PATHWAY_NAME for Module 4d to: '{ucell_plot_pathway_name if ucell_plot_pathway_name else 'empty (plot first)'}'")
 
     elif module_name == "04e_pseudotime": 
         palantir_start_cell = params.get("conditional_paths", {}).get("palantir_start_cell")
-        env["IMPACT_SC_PALANTIR_START_CELL"] = str(palantir_start_cell) if palantir_start_cell else ""
-        if palantir_start_cell: print(f"Setting IMPACT_SC_PALANTIR_START_CELL: {palantir_start_cell}")
+        env["SCAPE_PALANTIR_START_CELL"] = str(palantir_start_cell) if palantir_start_cell else ""
+        if palantir_start_cell: print(f"Setting SCAPE_PALANTIR_START_CELL: {palantir_start_cell}")
         else: print("Warning: palantir_start_cell not set for Pseudotime.")
 
     elif module_name == "04h_cell_chat":
@@ -226,14 +226,14 @@ def run_script(script_path: str, script_type: str, params: dict, module_name: st
             except IOError: pass
             return False # Fail the module
         
-        env["IMPACT_SC_CELLCHAT_SOURCE_GROUPS"] = str(source_groups)
-        env["IMPACT_SC_CELLCHAT_TARGET_GROUPS"] = str(target_groups)
-        env["IMPACT_SC_LIANA_METHOD"] = str(liana_method)
+        env["SCAPE_CELLCHAT_SOURCE_GROUPS"] = str(source_groups)
+        env["SCAPE_CELLCHAT_TARGET_GROUPS"] = str(target_groups)
+        env["SCAPE_LIANA_METHOD"] = str(liana_method)
 
         print(f"Setting environment variables for module {module_name}:")
-        print(f"  IMPACT_SC_CELLCHAT_SOURCE_GROUPS = {env['IMPACT_SC_CELLCHAT_SOURCE_GROUPS']}")
-        print(f"  IMPACT_SC_CELLCHAT_TARGET_GROUPS = {env['IMPACT_SC_CELLCHAT_TARGET_GROUPS']}")
-        print(f"  IMPACT_SC_LIANA_METHOD = {env['IMPACT_SC_LIANA_METHOD']}")
+        print(f"  SCAPE_CELLCHAT_SOURCE_GROUPS = {env['SCAPE_CELLCHAT_SOURCE_GROUPS']}")
+        print(f"  SCAPE_CELLCHAT_TARGET_GROUPS = {env['SCAPE_CELLCHAT_TARGET_GROUPS']}")
+        print(f"  SCAPE_LIANA_METHOD = {env['SCAPE_LIANA_METHOD']}")
 
     # --- Script execution logic ---
     stdout_data = None
@@ -286,7 +286,7 @@ def run_script(script_path: str, script_type: str, params: dict, module_name: st
                 cwd_to_use = params.get("input_r_scripts_dir", os.getcwd())
 
             elif script_type == "python":
-                target_conda_env_python = "impact_sc"
+                target_conda_env_python = "SCAPE"
                 conda_exe = shutil.which("conda")
 
                 if conda_exe:
@@ -380,7 +380,7 @@ def run_script(script_path: str, script_type: str, params: dict, module_name: st
 
 def main():
     if len(sys.argv) != 2:
-        print("Usage: python run_impact_sc_pipeline.py <path_to_params.json>")
+        print("Usage: python run_SCAPE_pipeline.py <path_to_params.json>")
         sys.exit(1)
 
     params_path = sys.argv[1]
@@ -402,11 +402,11 @@ def main():
     _params_temp['__params_file_path__'] = params_path 
     params = _params_temp
 
-    print("--- Starting IMPACT-sc Pipeline Execution ---")
+    print("--- Starting SCAPE Pipeline Execution ---")
     print(f"Parameters loaded from: {params_path}")
 
     current_conda_env = os.environ.get("CONDA_DEFAULT_ENV")
-    expected_conda_env = "impact_sc"
+    expected_conda_env = "SCAPE"
     if current_conda_env != expected_conda_env:
         print("-" * 70)
         print(f"WARNING: You appear to be running this script from an unexpected Conda environment.")
@@ -494,7 +494,8 @@ def main():
         else:
             print(f"Warning: Module '{module_name}' is selected but not defined in the script map. Skipping.")
 
-    print("--- IMPACT-sc Pipeline Execution Finished ---")
+    print("--- SCAPE Pipeline Execution Finished ---")
 
 if __name__ == "__main__":
     main()
+
